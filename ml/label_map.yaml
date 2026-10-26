@@ -1,0 +1,74 @@
+# Farklı veri setlerindeki etiketleri TaneİZ ortak şemasına eşler.
+#
+# Klasör düzeni: ml/data/raw/<dir>/<kaynak_etiket>/**/*.jpg
+# Kaynak etiket eşleşmesi büyük/küçük harf duyarsızdır. `null` → o etiket kullanılmaz.
+# prepare_data.py, eşlenmemiş klasörleri raporda listeler; indirdiğiniz sürümün
+# klasör adlarını kontrol edip aşağıyı güncelleyin (bkz. DATASETS.md).
+
+target_classes:
+  - SAGLIKLI
+  - KIRIK_CATLAK
+  - BOCEK_SUNE_ZARARI
+  - KUFLU
+  - LEKELI_RENK_BOZUK
+  - BURUSUK_CILIZ
+
+datasets:
+  wheatvision:
+    dir: WheatVision
+    source: "Mendeley Data, DOI 10.17632/bx27hg9vwd"
+    license: "CC BY 4.0 (Mendeley sayfasından doğrulayın)"
+    labels:
+      # VARSAYIM: klasör adları aşağıdaki gibi; indirilen sürüme göre düzeltin.
+      healthy: SAGLIKLI
+      sound: SAGLIKLI
+      broken: KIRIK_CATLAK
+      cracked: KIRIK_CATLAK
+      insect_damaged: BOCEK_SUNE_ZARARI
+      sunn_pest: BOCEK_SUNE_ZARARI
+      moldy: KUFLU
+      mouldy: KUFLU
+      discolored: LEKELI_RENK_BOZUK
+      black_point: LEKELI_RENK_BOZUK
+      shriveled: BURUSUK_CILIZ
+      shrunken: BURUSUK_CILIZ
+      foreign_material: null
+
+  grainset:
+    dir: GrainSet/wheat
+    source: "GrainSet (Scientific Data, 2023) — makaledeki veri bağlantısı"
+    license: "CC BY 4.0 (makaleden doğrulayın)"
+    # Aynı tanenin ön/arka yüz görüntüleri aynı bölmeye düşsün (sızıntı önleme).
+    # Dosya adından grup anahtarı çıkaran regex; ilk yakalama grubu kullanılır.
+    group_regex: "^(.*?)(?:_[ab]|_front|_back|_up|_down)?\\.(?:jpg|jpeg|png|bmp)$"
+    labels:
+      "0_nor": SAGLIKLI
+      nor: SAGLIKLI
+      "1_f&s": BURUSUK_CILIZ
+      "f&s": BURUSUK_CILIZ
+      "2_sd": null # filizlenmiş — şemada yok
+      sd: null
+      "3_my": KUFLU
+      my: KUFLU
+      "4_ap": BOCEK_SUNE_ZARARI
+      ap: BOCEK_SUNE_ZARARI
+      "5_bn": KIRIK_CATLAK
+      bn: KIRIK_CATLAK
+      "6_bp": LEKELI_RENK_BOZUK
+      bp: LEKELI_RENK_BOZUK
+      "7_im": null # yabancı madde
+      im: null
+      hd: LEKELI_RENK_BOZUK # ısı hasarlı
+
+  sune:
+    dir: Sune
+    source: "Süne zararlı/sağlam buğday tanesi görüntü seti (bkz. DATASETS.md)"
+    license: "Kaynağın lisansını doğrulayın"
+    labels:
+      saglam: SAGLIKLI
+      sağlam: SAGLIKLI
+      healthy: SAGLIKLI
+      suneli: BOCEK_SUNE_ZARARI
+      süneli: BOCEK_SUNE_ZARARI
+      sunn_pest_damaged: BOCEK_SUNE_ZARARI
+      damaged: BOCEK_SUNE_ZARARI

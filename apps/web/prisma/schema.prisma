@@ -1,0 +1,101 @@
+// Demo için SQLite. Postgres'e geçiş: provider = "postgresql" + DATABASE_URL.
+// SQLite enum/Json desteklemediği için roller/durumlar String, JSON alanlar metin olarak tutulur.
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String        @id @default(cuid())
+  email        String        @unique
+  name         String
+  organization String?
+  passwordHash String
+  role         String // URETICI | DEPO | ALICI | ADMIN
+  createdAt    DateTime      @default(now())
+  lots         Lot[]
+  events       SupplyEvent[]
+}
+
+model Lot {
+  id          String   @id @default(cuid())
+  publicId    String   @unique // ör. TZ-7K3P9Q
+  product     String   @default("Buğday")
+  variety     String
+  harvestDate DateTime
+  quantityKg  Float
+  province    String
+  district    String
+  status      String   @default("HASAT") // HASAT | DEPODA | SATILDI
+  ownerId     String
+  owner       User     @relation(fields: [ownerId], references: [id])
+  createdAt   DateTime @default(now())
+
+  // Zincire kayıt (registerLot) kuyruğu
+  chainStatus      String    @default("PENDING") // PENDING | CONFIRMED | FAILED
+  chainTxHash      String?
+  chainAttempts    Int       @default(0)
+  chainError       String?
+  chainNextAttempt DateTime  @default(now())
+
+  reports QualityReport[]
+  events  SupplyEvent[]
+}
+
+model QualityReport {
+  id              String   @id @default(cuid())
+  lotId           String
+  lot             Lot      @relation(fields: [lotId], references: [id], onDelete: Cascade)
+  images          String // JSON: [{ path, sha256 }]
+  annotatedImages String // JSON: [{ path, sha256 }]
+  grainCount      Int
+  ratios          String // JSON: { SAGLIKLI: 0.93, ... }
+  counts          String // JSON: { SAGLIKLI: 112, ... }
+  grade           String // SINIF_1 | SINIF_2 | SINIF_3
+  gradeLabel      String
+  moisture        Float // cihazdan elle girilir, fotoğraftan TAHMİN EDİLMEZ
+  avgConfidence   Float
+  modelVersion    String
+  warnings        String // JSON: string[]
+  createdAt       DateTime @default(now())
+}
+
+model SupplyEvent {
+  id            String   @id @default(cuid())
+  lotId         String
+  lot           Lot      @relation(fields: [lotId], references: [id], onDelete: Cascade)
+  seq           Int // partideki sıra (zincirdeki indeksle aynı sırada yazılır)
+  type          String // PARTI_OLUSTURULDU | KALITE_ANALIZI | DEPO_TESLIM | ALICI_TESLIM
+  data          String // kanonik hash'i alınan JSON
+  dataHash      String
+  actorId       String?
+  actor         User?    @relation(fields: [actorId], references: [id])
+  createdAt     DateTime @default(now())
+
+  // Zincir kuyruğu
+  chainStatus   String    @default("PENDING") // PENDING | CONFIRMED | FAILED
+  chainIndex    Int?
+  txHash        String?
+  blockNumber   Int?
+  attempts      Int       @default(0)
+  lastError     String?
+  nextAttemptAt DateTime  @default(now())
+
+  tamperLogs TamperLog[]
+
+  @@unique([lotId, seq])
+}
+
+// Yalnızca /demo/kurcala için: orijinal veriyi saklar ki geri alınabilsin.
+model TamperLog {
+  id           String    @id @default(cuid())
+  eventId      String
+  event        SupplyEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  originalData String
+  createdAt    DateTime  @default(now())
+  restoredAt   DateTime?
+}

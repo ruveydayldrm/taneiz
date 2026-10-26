@@ -1,0 +1,26 @@
+{
+  "name": "taneiz",
+  "private": true,
+  "version": "1.0.0",
+  "description": "TaneİZ — buğday için blokzincir destekli izlenebilirlik ve yapay zekâ kalite analizi (demo)",
+  "workspaces": [
+    "packages/shared",
+    "contracts",
+    "apps/web"
+  ],
+  "scripts": {
+    "chain": "npm run node -w contracts",
+    "deploy:local": "npm run deploy:local -w contracts",
+    "deploy:amoy": "npm run deploy:amoy -w contracts",
+    "test:contracts": "npm test -w contracts",
+    "test:shared": "npm test -w packages/shared",
+    "ai": "cd apps/ai-service && python -m uvicorn app.main:app --host 0.0.0.0 --port 8000",
+    "db:push": "npm run db:push -w apps/web",
+    "db:reset": "npm run db:reset -w apps/web",
+    "seed": "npm run seed -w apps/web",
+    "seed:no-ai": "npm run seed -w apps/web -- --no-ai",
+    "dev": "npm run dev -w apps/web",
+    "build": "npm run build -w apps/web",
+    "start": "npm run start -w apps/web"
+  }
+}

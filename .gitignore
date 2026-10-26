@@ -1,0 +1,29 @@
+node_modules/
+.next/
+*.tsbuildinfo
+.env
+.env.local
+*.log
+
+# Prisma / yerel veriler
+apps/web/prisma/*.db
+apps/web/prisma/*.db-journal
+apps/web/storage/
+
+# Hardhat
+contracts/artifacts/
+contracts/cache/
+contracts/typechain-types/
+contracts/deployments/localhost.json
+contracts/deployments/hardhat.json
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# ML — veri setleri ve büyük model dosyaları repoya girmez
+ml/data/
+ml/artifacts/*.pt
+ml/runs/

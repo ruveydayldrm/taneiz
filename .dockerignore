@@ -1,0 +1,13 @@
+**/node_modules
+**/.next
+**/__pycache__
+**/.pytest_cache
+apps/web/storage
+apps/web/prisma/*.db*
+apps/web/.env
+contracts/artifacts
+contracts/cache
+contracts/deployments/*.json
+ml/data
+ml/artifacts/*.pt
+.git

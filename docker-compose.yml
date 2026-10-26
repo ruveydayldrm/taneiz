@@ -1,0 +1,48 @@
+services:
+  chain:
+    build: { context: ., dockerfile: docker/node.Dockerfile }
+    image: taneiz-node
+    command: ["/repo/docker/chain-entrypoint.sh"]
+    ports: ["8545:8545"]
+    volumes: [deployments:/deployments]
+    healthcheck:
+      test: ["CMD", "test", "-f", "/deployments/localhost.json"]
+      interval: 3s
+      retries: 60
+
+  ai:
+    build: ./apps/ai-service
+    ports: ["8000:8000"]
+    environment:
+      MODEL_DIR: /models
+    volumes:
+      - ./ml/artifacts:/models:ro
+
+  web:
+    image: taneiz-node
+    command: ["/repo/docker/web-entrypoint.sh"]
+    depends_on:
+      chain: { condition: service_healthy }
+      ai: { condition: service_started }
+    ports: ["3000:3000"]
+    environment:
+      DATABASE_URL: file:/data/taneiz.db
+      STORAGE_DIR: /data/storage
+      NEXTAUTH_URL: ${PUBLIC_BASE_URL:-http://localhost:3000}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-taneiz-demo-secret-degistirin}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:3000}
+      AI_SERVICE_URL: http://ai:8000
+      CHAIN_NETWORK: localhost
+      RPC_URL: http://chain:8545
+      DEPLOYMENT_FILE: /deployments/localhost.json
+      # Hardhat #0 hesabı — herkesçe bilinen anahtar, SADECE yerel ağ için
+      RELAYER_PRIVATE_KEY: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+      DEMO_MODE: "true"
+      SEED_ON_START: "true"
+    volumes:
+      - deployments:/deployments
+      - webdata:/data
+
+volumes:
+  deployments:
+  webdata:

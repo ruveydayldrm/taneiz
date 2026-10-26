@@ -1,0 +1,28 @@
+# TaneİZ kalite sınıfı kuralları
+# UYARI: Bu eşikler DEMO amaçlıdır ve tamamen yapılandırılabilir.
+# TS 2974 veya herhangi bir resmi buğday standardının yerine GEÇMEZ.
+disclaimer: "Kalite sınıfı demo amaçlı, yapılandırılabilir eşiklerle hesaplanır; resmi bir standart değildir."
+
+# Oranı esas alınan sınıf
+basis_class: SAGLIKLI
+
+# Yukarıdan aşağı ilk sağlanan kural uygulanır
+grades:
+  - code: SINIF_1
+    label: "1. Sınıf"
+    min_ratio: 0.95
+    # İsteğe bağlı: bazı kusurlar için üst sınır
+    max_defect_ratios:
+      KUFLU: 0.01
+      BOCEK_SUNE_ZARARI: 0.02
+  - code: SINIF_2
+    label: "2. Sınıf"
+    min_ratio: 0.88
+    max_defect_ratios:
+      KUFLU: 0.03
+  - code: SINIF_3
+    label: "3. Sınıf"
+    min_ratio: 0.0
+
+# Bu sayının altında tane bulunursa "güvenilirlik düşük" uyarısı verilir
+min_grains_for_reliable: 50
