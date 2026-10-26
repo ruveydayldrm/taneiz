@@ -1,186 +1,181 @@
-# TaneİZ — Demo
+<div align="center">
 
-Buğday için **yapay zekâ ile tane tane kalite analizi** + **blokzincirde mühürlü tedarik kaydı** +
-**QR ile açılan, herkesin doğrulayabildiği Ürün Pasaportu**.
+# TaneİZ
 
-```
- Telefon / tarayıcı
-        │
- ┌──────▼──────────────────────┐   POST /analyze    ┌───────────────────────────────┐
- │ apps/web  (Next.js 14)      │ ─────────────────▶ │ apps/ai-service (FastAPI)     │
- │  • sayfalar, NextAuth       │                    │  kalite kontrol → OpenCV      │
- │  • Prisma + SQLite          │ ◀───────────────── │  segmentasyon + watershed →   │
- │  • zincir kuyruğu (relayer) │  oranlar + görsel  │  ONNX Runtime sınıflandırma   │
- └──────┬──────────────────────┘                    └──────────────▲────────────────┘
-        │ viem: registerLot / recordEvent / verify                 │ ml/artifacts/model.onnx
- ┌──────▼──────────────────────┐                    ┌──────────────┴────────────────┐
- │ contracts/TaneIzRegistry    │                    │ ml/ (PyTorch + timm, Colab)   │
- │  Hardhat (yerel) / Amoy     │                    │  prepare → train → evaluate → │
- └─────────────────────────────┘                    │  export_onnx                  │
-                                                    └───────────────────────────────┘
-```
+**Grain-level AI quality inspection + tamper-evident supply-chain records for wheat**
 
-**Zincire yalnızca hash yazılır.** Olay verisi → anahtarları sıralı kanonik JSON → `keccak256`
-(`packages/shared/src/hash.ts`). Görseller `SHA-256` ile hash'lenip olay verisine eklenir. Kayıt ve
-doğrulama aynı fonksiyonu kullanır.
+Photograph a wheat sample → a computer-vision pipeline finds and classifies every kernel →
+each supply-chain step is hashed onto a blockchain → anyone scanning the QR code can verify
+that the record has not been altered.
+
+![Next.js](https://img.shields.io/badge/Next.js_14-000?logo=nextdotjs)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
+![OpenCV](https://img.shields.io/badge/OpenCV-5C3EE8?logo=opencv&logoColor=white)
+![PyTorch](https://img.shields.io/badge/PyTorch_+_timm-EE4C2C?logo=pytorch&logoColor=white)
+![ONNX Runtime](https://img.shields.io/badge/ONNX_Runtime-005CED?logo=onnx&logoColor=white)
+![Solidity](https://img.shields.io/badge/Solidity_0.8-363636?logo=solidity)
+![Prisma](https://img.shields.io/badge/Prisma-2D3748?logo=prisma)
+
+[Türkçe kurulum rehberi](docs/README.tr.md) · [Demo walkthrough](docs/demo-senaryosu.md) · [Datasets](ml/DATASETS.md)
+
+</div>
 
 ---
 
-## 1. Hızlı başlangıç (Docker)
+## Why
 
-```bash
-cp .env.example .env          # telefonla QR için PUBLIC_BASE_URL=http://<bilgisayar-IP>:3000
-docker compose up --build
+Wheat quality is still judged by eye. The farmer, warehouse and buyer can disagree about the same lot,
+and paper slips or spreadsheets can be edited after the fact. The final buyer has no way to check a
+lot's history.
+
+TaneİZ addresses both problems:
+
+1. **Measure:** a CV pipeline counts and classifies individual kernels (healthy, broken, insect/sunn-pest
+   damaged, moldy, discolored, shriveled) and derives defect ratios and a quality grade.
+2. **Seal:** every event (lot created, quality analysis, warehouse intake, purchase) is canonicalized and
+   its `keccak256` hash is written on-chain. Images are included by their `SHA-256`.
+3. **Verify:** a public, login-free **Product Passport** recomputes the hash from the current database
+   record and compares it with the chain. Change one number in the DB and it reports **MISMATCH**.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    U[Phone / browser] --> W
+
+    subgraph W[apps/web · Next.js 14]
+      P[Pages + NextAuth roles]
+      DB[(Prisma · SQLite)]
+      Q[DB-backed chain queue<br/>relayer wallet]
+    end
+
+    W -- "POST /analyze (1–3 photos)" --> AI
+    subgraph AI[apps/ai-service · FastAPI]
+      QC[Image QC<br/>blur · exposure · resolution] --> SEG[OpenCV segmentation<br/>+ watershed split]
+      SEG --> CLS[ONNX Runtime classifier<br/>CPU]
+      CLS --> ANN[Annotated image<br/>+ ratios + grade]
+    end
+
+    Q -- "registerLot / recordEvent (viem)" --> C[contracts · TaneIzRegistry.sol<br/>Hardhat local / Polygon Amoy]
+    P -- "verify(lot, index, hash)" --> C
+
+    subgraph ML[ml/ · training, Colab-friendly]
+      PD[prepare_data<br/>merge · dedupe · locked test split] --> TR[train<br/>EfficientNet-B0 / MobileNetV3]
+      TR --> EV[evaluate<br/>model_card.json] --> EX[export_onnx<br/>parity check]
+    end
+    EX -- model.onnx --> CLS
 ```
 
-- Web: http://localhost:3000 · AI: http://localhost:8000/health · Zincir RPC: http://localhost:8545
-- `ml/artifacts/` içinde eğitilmiş model ve `apps/web/prisma/seed-samples/` içinde numune fotoğrafları
-  varsa web konteyneri açılışta **seed** çalıştırır ve tüm sayfalar dolu gelir (bkz. §3).
-- Model yoksa: AI servisi açık hata mesajıyla açılır, analiz 503 döner, seed durur ve nasıl
-  ilerleyeceğini yazar. Sahte sonuç üretilmez. Kalite analizi olmadan zaman çizelgesi/zincir
-  demosu için: `docker compose exec web npm run seed -- --no-ai` (Docker'sız: `npm run seed:no-ai`)
-- Yerel Hardhat zinciri her `up`'ta sıfırlanır; bu yüzden web veritabanı da her açılışta sıfırlanıp
-  yeniden seed edilir.
+| Package | Responsibility |
+|---|---|
+| [`apps/web`](apps/web) | Next.js App Router, Tailwind + shadcn-style UI, NextAuth (credentials, 4 roles), Prisma, chain queue, PDF/QR labels |
+| [`apps/ai-service`](apps/ai-service) | FastAPI inference: image QC → segmentation → per-kernel classification → annotated image |
+| [`contracts`](contracts) | `TaneIzRegistry.sol` (OpenZeppelin `AccessControl`), Hardhat tests, deploy script |
+| [`packages/shared`](packages/shared) | Canonical JSON + hash functions shared by write and verify paths, ABI, types |
+| [`ml`](ml) | Data preparation, training, evaluation, ONNX export, Colab notebook |
 
-## 2. Docker'sız çalıştırma
+## Technical highlights
 
-Gereken: Node 20+ (22 ile test edildi), Python 3.11.
+**Computer vision**
+- Background estimation with illumination correction (downscaled max-filter), Otsu thresholding on a
+  darkness + saturation feature, morphology and hole filling.
+- Touching kernels are split with a **distance-transform + watershed** step. Per-component relative peak
+  thresholds are raised adaptively only for blobs much larger than the median kernel, which avoids
+  over-splitting elongated single grains (covered by tests).
+- Contours are filtered relative to the median kernel area, removing dust and clumps.
+- Image QC (Laplacian variance, exposure, resolution) produces warnings, not silent failures.
 
+**Machine learning**
+- Datasets with different taxonomies (WheatVision, GrainSet, a sunn-pest set) are mapped to one
+  6-class schema via [`label_map.yaml`](ml/label_map.yaml).
+- SHA-256 deduplication. **Group-aware stratified 70/15/15 split**, so both photos of the same kernel stay
+  in the same split (no leakage).
+- **The test split is locked**: its hash is stored, `evaluate.py` refuses to run if it has changed, and
+  the split cannot be regenerated without `--force`.
+- Training: `timm` transfer learning, class-weighted loss, label smoothing, AMP, cosine schedule, and
+  domain-gap augmentation (kernels pasted onto random light backgrounds to match field photos).
+- `export_onnx.py` checks PyTorch ↔ ONNX outputs on random and real test inputs (max-abs-diff and argmax
+  agreement) and refuses to write a model that diverges.
+- The model card page shows only numbers produced by `evaluate.py` on the locked test set. Without a model
+  the inference service starts with an explicit error and returns `503`; it never fabricates results.
+
+**Blockchain & integrity**
+- Only hashes go on-chain; no personal data and no images.
+- The same `hashEventData()` (sorted-key canonical JSON → `keccak256`) is used when writing and when
+  verifying.
+- An asynchronous DB-backed queue keeps on-chain index = per-lot sequence. It uses exponential-backoff
+  retries and is **idempotent**: a transaction that landed but wasn't recorded in the DB is detected and
+  not re-sent.
+- Writes require `RECORDER_ROLE` (server relayer). `ADMIN_ROLE` manages recorders.
+
+**Product**
+- Mobile-first passport page: grade stamp, original ↔ AI-annotated image slider, defect breakdown,
+  timeline with live per-step verification.
+- 5-step producer wizard, QR label PDF, warehouse/buyer QR scanning (camera, image file or manual entry).
+- `/demo/kurcala` tamper demo: edit a record in the DB, watch verification turn red, undo it, watch it
+  turn green again.
+
+## Quick start
+
+**Docker**
+```bash
+cp .env.example .env     # set PUBLIC_BASE_URL=http://<your-LAN-IP>:3000 to scan QR codes from a phone
+docker compose up --build
+```
+Web `:3000` · AI service `:8000` · local chain RPC `:8545`
+
+**Without Docker** (Node 20+, Python 3.11)
 ```bash
 npm install
 pip install -r apps/ai-service/requirements.txt
 cp apps/web/.env.example apps/web/.env
 npm run db:push
+
+npm run chain          # terminal 1: local Hardhat node
+npm run deploy:local   # terminal 2: deploy + grant RECORDER_ROLE
+npm run ai             # terminal 2: inference service
+npm run seed           # terminal 3: demo users + 6 lots (or `npm run seed:no-ai` without a model)
+npm run dev            # terminal 4: http://localhost:3000
 ```
 
-Dört terminal:
+Demo accounts (password `taneiz123`): `uretici@` (producer), `depo@` (warehouse), `alici@` (buyer),
+`admin@taneiz.demo`. The login page also offers one-click sign-in.
 
-| # | Komut | Ne yapar |
-|---|---|---|
-| 1 | `npm run chain` | Yerel Hardhat node (8545) |
-| 2 | `npm run deploy:local` | Kontratı deploy eder, relayer'a `RECORDER_ROLE` verir, `contracts/deployments/localhost.json` yazar |
-| 2 | `npm run ai` | AI servisi (8000), modeli `ml/artifacts/`'tan yükler |
-| 3 | `npm run seed` | Demo kullanıcıları + 6 parti (gerçek analiz, zincire yazılmış) |
-| 4 | `npm run dev` | Web (3000) — zincir kuyruğu işleyicisi sunucu içinde çalışır |
+**Training the model:** download the datasets ([ml/DATASETS.md](ml/DATASETS.md)), run
+[`ml/train_colab.ipynb`](ml/train_colab.ipynb) on a free Colab T4 (under an hour), unzip the artifacts into
+`ml/artifacts/` and `apps/web/prisma/seed-samples/`, restart the AI service, then run `npm run seed`.
 
-> Hardhat node'u yeniden başlatırsanız zincir boşalır: `npm run deploy:local` ve `npm run seed`
-> komutlarını tekrar çalıştırın.
-
-## 3. Modeli eğitmek (bir kez)
-
-1. Veri setlerini indirin ve yerleştirin → [`ml/DATASETS.md`](ml/DATASETS.md)
-   (WheatVision DOI 10.17632/bx27hg9vwd, GrainSet, süne seti; repoya konmaz).
-2. **Colab (önerilen, ücretsiz T4, < 1 saat):** [`ml/train_colab.ipynb`](ml/train_colab.ipynb)'i açıp
-   hücreleri sırayla çalıştırın. Sonda inen zip'i açın:
-   `artifacts/*` → `ml/artifacts/`, `seed-samples/*` → `apps/web/prisma/seed-samples/`.
-3. Yerel (GPU varsa):
-   ```bash
-   pip install -r ml/requirements.txt
-   cd ml
-   python prepare_data.py       # birleştir, dengesizliği raporla, 70/15/15, test setini KİLİTLE
-   python train.py              # EfficientNet-B0, augmentation, sınıf ağırlıklı kayıp
-   python evaluate.py           # kilitli test seti → model_card.json + confusion_matrix.png
-   python export_onnx.py        # ONNX + PyTorch çıktılarıyla eşitlik doğrulaması
-   python make_demo_samples.py  # seed için test setinden numune fotoğrafları
-   ```
-4. AI servisini yeniden başlatın, `npm run seed` çalıştırın.
-
-Model Kartı (`/model`) yalnızca `model_card.json`'daki gerçek test metriklerini gösterir; kart yoksa
-"henüz metrik yok" der.
-
-## 4. Demo hesapları
-
-Hepsinin şifresi **`taneiz123`** (giriş sayfasında tek tıkla da girilebilir).
-
-| Rol | E-posta | Sayfa |
-|---|---|---|
-| Üretici | uretici@taneiz.demo | `/panel`, `/panel/yeni` |
-| Depo | depo@taneiz.demo | `/depo` |
-| Alıcı | alici@taneiz.demo | `/alici` |
-| Yönetici | admin@taneiz.demo | hepsi + `/demo/kurcala` |
-
-## 5. Sayfalar
-
-| Yol | Açıklama |
-|---|---|
-| `/` | Tanıtım: sorun → çözüm → 3 adım → örnek pasaport (gerçek veriden) |
-| `/p/[publicId]` | Ürün Pasaportu (girişsiz): mühür, nem, menşei, orijinal ↔ açıklamalı görüntü sürgüsü, kusur oranları, zaman çizelgesi, **"Bu kaydı şimdi doğrula"** |
-| `/panel`, `/panel/yeni` | Üretici: parti listesi, 5 adımlı sihirbaz, QR etiket PDF'i (`/api/lots/[id]/label`) |
-| `/depo`, `/alici` | QR okut (kamera / fotoğraftan / elle) → teslim al / satın al |
-| `/model` | Model Kartı: test metrikleri, confusion matrix, sınıf örnekleri, veri setleri, sınırlamalar |
-| `/demo/kurcala` | ADMIN + `DEMO_MODE=true`: olay verisini DB'de değiştir / geri al |
-| `/api/health` | DB, AI, zincir ve kuyruk durumu |
-
-## 6. Telefonla QR
-
-- `PUBLIC_BASE_URL`'i bilgisayarın yerel ağ IP'sine ayarlayın (ör. `http://192.168.1.20:3000`),
-  telefon ile bilgisayar aynı Wi-Fi'de olsun. Windows güvenlik duvarı 3000 portuna izin vermeli.
-  QR kodları bu adresle üretilir; telefonun kendi kamerasıyla okutunca pasaport açılır.
-- **Uygulama içi kamera ile tarama** (`/depo`, `/alici`) tarayıcı gereği HTTPS ister (localhost hariç).
-  Demoda tarama bilgisayarda yapılabilir, "Fotoğraftan oku" veya elle kod girişi kullanılabilir. Telefonda
-  kamera taraması gerekiyorsa `npx localtunnel --port 3000` / ngrok gibi bir HTTPS tüneli kullanın ve
-  `PUBLIC_BASE_URL`'i o adrese ayarlayın.
-
-## 7. Polygon Amoy'a geçiş
+## Tests
 
 ```bash
-# contracts/.env
-AMOY_RPC_URL=https://rpc-amoy.polygon.technology
-DEPLOYER_PRIVATE_KEY=0x...        # test MATIC/POL'lü hesap
-RELAYER_ADDRESS=0x...             # web sunucusunun yazacağı adres (boşsa deployer)
-npm run deploy:amoy
-
-# apps/web/.env
-CHAIN_NETWORK=amoy
-RPC_URL=https://rpc-amoy.polygon.technology
-RELAYER_PRIVATE_KEY=0x...         # RELAYER_ADDRESS'in anahtarı
-```
-Pasaportta işlem bağlantıları Polygonscan'e gider. Docker'da `RESET_DB_ON_START=false` yapın.
-
-## 8. Postgres'e geçiş
-
-`apps/web/prisma/schema.prisma` → `provider = "postgresql"` ve `DATABASE_URL=postgresql://...`.
-JSON alanları metin olarak tutulduğundan başka değişiklik gerekmez.
-
-## 9. Testler
-
-```bash
-npm run test:contracts                         # 10 Hardhat testi: yetkisiz yazma, doğru/yanlış hash, ...
-npm run test:shared                            # kanonik JSON + hash
-cd apps/ai-service && python -m pytest -q      # segmentasyon, watershed, kalite kontrol, kurallar, modelsiz 503
+npm run test:contracts                       # 10 Hardhat tests: access control, ordering, verify true/false
+npm run test:shared                          # canonical JSON + hashing
+cd apps/ai-service && python -m pytest -q    # segmentation, watershed split, QC, grading rules, no-model 503
 ```
 
-## 10. Varsayımlar ve kararlar
+## Project status
 
-- **Kalite sınıfı eşikleri** `apps/ai-service/grading_rules.yaml`'dadır (sağlıklı ≥ %95 → 1. Sınıf,
-  ≥ %88 → 2. Sınıf, aksi 3. Sınıf; ek olarak küf/böcek üst sınırları). Demo amaçlıdır,
-  **resmi standart değildir** ve arayüzde böyle belirtilir.
-- **Nem** fotoğraftan tahmin edilmez; nem ölçerden elle girilir ve veride `moistureSource:
-  "cihaz-elle-giris"` olarak işaretlenir.
-- `label_map.yaml`'daki **WheatVision klasör adları tahminidir**; indirilen sürüme göre düzeltilmelidir
-  (`prepare_data.py` eşlenmemiş klasörleri listeler). Süne seti için kesin bir DOI verilmediğinden
-  kaynak kullanıcı tarafından belgelenir.
-- Sınıflandırıcı tek tane görüntüleriyle eğitilir; eğitimde %50 olasılıkla **zemin değiştirme**
-  augmentasyonu uygulanır ki sahadaki açık zemin fotoğraflarına genellesin.
-- Seed numuneleri, **kilitli test setindeki gerçek tane görüntülerinin** açık zemine dağıtılmasıyla
-  üretilen kompozitlerdir (gerçek dağılım `manifest.json`'da). Analiz yine AI servisinden gelir.
-- Pasaport, kalite/miktar bilgisini **hash'i zincire yazılan olay verisinden** okur. Böylece
-  veritabanında yapılan bir kurcalama hem ekranda görünür hem de doğrulamada yakalanır.
-- Zincire yazma DB tabanlı bir kuyrukla, olay sırası korunarak yapılır (zincirdeki indeks = partideki
-  sıra). Başarısız yazımlar üstel beklemeyle yeniden denenir; işlem zincire girmiş ama DB
-  güncellenememişse tekrar yazılmaz (idempotent).
-- Olay verisinde kişi adı tutulmaz, yalnızca rol (ve firma/depo adı) bulunur; zincire yalnızca hash gider.
-- QR etiket PDF'inde standart PDF fontları Türkçe karakter içermediği için metin ASCII'ye sadeleştirilir.
-- Hardhat #0 hesabının anahtarı yalnızca yerel ağ için `.env.example`'da yer alır.
+- [x] Contracts, hashing and chain queue, tested end-to-end on a local Hardhat chain
+- [x] Inference service: segmentation, classification and annotation, tested with an integration model
+- [x] Web app: passport, verification, producer wizard, warehouse/buyer flows, tamper demo
+- [x] Training pipeline: prepare, train, evaluate, export, plus Colab notebook
+- [ ] Train on the public datasets and publish real test-set metrics in the model card
+- [ ] Screenshots / short demo GIF
+- [ ] Docker Compose run verified on a clean machine
 
-## 11. Klasörler
+## Design decisions & limitations
 
-```
-apps/web           Next.js 14 (App Router), Tailwind, shadcn tarzı bileşenler, Prisma, NextAuth
-apps/ai-service    FastAPI + OpenCV + ONNX Runtime
-contracts          TaneIzRegistry.sol, Hardhat testleri, deploy betiği
-packages/shared    kanonik JSON + hash fonksiyonları, ABI, ortak tipler
-ml                 prepare_data, train, evaluate, export_onnx, make_demo_samples, Colab notebook
-docs               demo-senaryosu.md
-docker             ortak Node imajı ve giriş betikleri
-```
+- Grade thresholds live in [`grading_rules.yaml`](apps/ai-service/grading_rules.yaml) (e.g. healthy ≥ 95% →
+  grade 1). They are configurable demo values, **not an official standard**, and the UI says so.
+- Moisture is **not** predicted from images. It is entered from a moisture meter and tagged as such in
+  the record.
+- The classifier is trained on single-kernel images; dense piles or heavy overlap reduce segmentation
+  quality.
+- The passport reads displayed values from the hashed event payload, so a DB tamper is both visible and
+  detected.
+- SQLite for the demo; switching to Postgres is a one-line Prisma provider change.
+
+---
+
+<sub>Built by **Rüveyda Yıldırım**, AI engineer · [github.com/ruveydayldrm](https://github.com/ruveydayldrm)</sub>

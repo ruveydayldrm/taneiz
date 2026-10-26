@@ -1,4 +1,4 @@
-# TaneİZ — 3 dakikalık jüri akışı
+# TaneİZ — 3 dakikalık demo akışı (teknik görüşme / sunum)
 
 **Hazırlık (sunumdan önce)**
 - `docker compose up` (veya README §2'deki dört terminal) çalışıyor, seed tamamlandı.
@@ -29,7 +29,7 @@ Ana sayfada uçuşan taneleri ve hash şeridini gösterin: "Bu şeritteki her sa
 Doğruluk / macro-F1, confusion matrix, yanlış tahminlerin de gizlenmediği örnekler, sınırlamalar.
 
 ### 1:40 – 2:10 · QR ve pasaport (telefon)
-1. Jüriden birine basılı QR'ı **kendi telefonuyla** okutturun → pasaport açılır (giriş gerekmez).
+1. Karşınızdakine basılı QR'ı **kendi telefonuyla** okutturun → pasaport açılır (giriş gerekmez).
 2. Zaman çizelgesindeki **"Zincirde doğrulandı"** rozetleri; **"Bu kaydı şimdi doğrula"** → yeşil **EŞLEŞTİ**.
 3. "Zincir ayrıntıları"nı açın: kayıtlı hash, yeniden hesaplanan hash, blok numarası, görsel SHA-256 kontrolleri.
 
