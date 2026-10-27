@@ -11,4 +11,5 @@ opencv-python-headless>=4.9
 Pillow>=10.0
 tqdm>=4.66
 onnx>=1.16
+onnxscript>=0.2  # torch>=2.9 ONNX dışa aktarıcısı için
 onnxruntime>=1.18

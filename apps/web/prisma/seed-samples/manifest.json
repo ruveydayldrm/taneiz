@@ -1,0 +1,83 @@
+{
+  "note": "Kompozitler kilitli test setindeki gerçek tane görüntülerinden üretildi.",
+  "samples": [
+    {
+      "file": "ornek-1.jpg",
+      "grains": 99,
+      "true_counts": {
+        "SAGLIKLI": 98,
+        "KIRIK_CATLAK": 1,
+        "BOCEK_SUNE_ZARARI": 0,
+        "KUFLU": 0,
+        "LEKELI_RENK_BOZUK": 0,
+        "BURUSUK_CILIZ": 0
+      },
+      "source": "kilitli test seti"
+    },
+    {
+      "file": "ornek-2.jpg",
+      "grains": 97,
+      "true_counts": {
+        "SAGLIKLI": 93,
+        "KIRIK_CATLAK": 4,
+        "BOCEK_SUNE_ZARARI": 0,
+        "KUFLU": 0,
+        "LEKELI_RENK_BOZUK": 0,
+        "BURUSUK_CILIZ": 0
+      },
+      "source": "kilitli test seti"
+    },
+    {
+      "file": "ornek-3.jpg",
+      "grains": 100,
+      "true_counts": {
+        "SAGLIKLI": 92,
+        "KIRIK_CATLAK": 8,
+        "BOCEK_SUNE_ZARARI": 0,
+        "KUFLU": 0,
+        "LEKELI_RENK_BOZUK": 0,
+        "BURUSUK_CILIZ": 0
+      },
+      "source": "kilitli test seti"
+    },
+    {
+      "file": "ornek-4.jpg",
+      "grains": 96,
+      "true_counts": {
+        "SAGLIKLI": 84,
+        "KIRIK_CATLAK": 12,
+        "BOCEK_SUNE_ZARARI": 0,
+        "KUFLU": 0,
+        "LEKELI_RENK_BOZUK": 0,
+        "BURUSUK_CILIZ": 0
+      },
+      "source": "kilitli test seti"
+    },
+    {
+      "file": "ornek-5.jpg",
+      "grains": 100,
+      "true_counts": {
+        "SAGLIKLI": 81,
+        "KIRIK_CATLAK": 19,
+        "BOCEK_SUNE_ZARARI": 0,
+        "KUFLU": 0,
+        "LEKELI_RENK_BOZUK": 0,
+        "BURUSUK_CILIZ": 0
+      },
+      "source": "kilitli test seti"
+    },
+    {
+      "file": "ornek-6.jpg",
+      "grains": 95,
+      "true_counts": {
+        "SAGLIKLI": 66,
+        "KIRIK_CATLAK": 29,
+        "BOCEK_SUNE_ZARARI": 0,
+        "KUFLU": 0,
+        "LEKELI_RENK_BOZUK": 0,
+        "BURUSUK_CILIZ": 0
+      },
+      "source": "kilitli test seti"
+    }
+  ]
+}

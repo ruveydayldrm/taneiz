@@ -63,9 +63,15 @@ export interface ModelCard {
     confusion_matrix: number[][];
   };
   test_set_lock?: { sha256: string; count: number };
-  onnx?: { sha256: string; max_abs_diff: number; argmax_agreement: number; opset: number };
+  onnx?: { sha256: string; max_abs_diff: number; max_prob_diff?: number; argmax_agreement: number; opset: number };
   confusion_matrix_image?: string;
   samples?: Record<string, { path: string; true: string; pred: string; confidence: number }[]>;
   training?: Record<string, unknown>;
+  pipeline_eval?: {
+    description: string;
+    grain_recall: number;
+    healthy_ratio_mae: number;
+    samples: { file: string; true_grains: number; found_grains: number; true_healthy: number; pred_healthy: number; ms: number }[];
+  };
   limitations: string[];
 }

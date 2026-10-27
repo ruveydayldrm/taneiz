@@ -27,3 +27,4 @@ __pycache__/
 ml/data/
 ml/artifacts/*.pt
 ml/runs/
+ml/artifacts/*.tmp.onnx*

@@ -38,16 +38,19 @@ def main():
     size = ckpt["img_size"]
     out_path = args.artifacts / "model.onnx"
     tmp_path = args.artifacts / "model.tmp.onnx"
-    torch.onnx.export(
-        model,
-        torch.randn(1, 3, size, size),
-        tmp_path,
+    export_kwargs = dict(
         input_names=["input"],
         output_names=["logits"],
         dynamic_axes={"input": {0: "batch"}, "logits": {0: "batch"}},
         opset_version=args.opset,
         do_constant_folding=True,
     )
+    try:
+        # torch>=2.9 varsayılanı dynamo dışa aktarıcısıdır; opset dönüştürmesi bazı katmanlarda
+        # sapma üretebildiğinden klasik TorchScript dışa aktarıcısı tercih edilir.
+        torch.onnx.export(model, torch.randn(1, 3, size, size), tmp_path, dynamo=False, **export_kwargs)
+    except TypeError:  # dynamo parametresi olmayan eski torch sürümleri
+        torch.onnx.export(model, torch.randn(1, 3, size, size), tmp_path, **export_kwargs)
 
     sess = ort.InferenceSession(str(tmp_path), providers=["CPUExecutionProvider"])
     batches = [torch.randn(8, 3, size, size)]
@@ -57,17 +60,26 @@ def main():
         idx = np.random.default_rng(0).choice(len(ds), size=min(64, len(ds)), replace=False)
         batches.append(torch.stack([ds[int(i)][0] for i in idx]))
 
-    max_diff, agree, total = 0.0, 0, 0
+    # Mutlak logit farkı ölçeğe bağlıdır (rastgele girdide logitler yüzlerce olabilir ve float32
+    # hesap sırası farkı ~1e-4 göreli sapma üretir; PyTorch'un kendi CPU arka uçları arasında bile).
+    # Bu yüzden ölçüt: olasılık (softmax) farkı + göreli logit farkı + %100 argmax uyumu.
+    softmax = lambda z: np.exp(z - z.max(1, keepdims=True)) / np.exp(z - z.max(1, keepdims=True)).sum(1, keepdims=True)
+    max_diff, max_rel, max_prob, agree, total = 0.0, 0.0, 0.0, 0, 0
     with torch.no_grad():
         for x in batches:
             ref = model(x).numpy()
             got = sess.run(None, {"input": x.numpy()})[0]
             max_diff = max(max_diff, float(np.abs(ref - got).max()))
+            max_rel = max(max_rel, float(np.abs(ref - got).max() / (np.abs(ref).max() + 1e-6)))
+            max_prob = max(max_prob, float(np.abs(softmax(ref) - softmax(got)).max()))
             agree += int((ref.argmax(1) == got.argmax(1)).sum())
             total += len(x)
     agreement = agree / total
-    print(f"PyTorch ↔ ONNX: en büyük mutlak fark {max_diff:.2e}, argmax uyumu {agreement:.4f} ({total} örnek)")
-    if max_diff > args.tol or agreement < 1.0:
+    print(
+        f"PyTorch ↔ ONNX ({total} örnek): olasılık farkı {max_prob:.2e}, göreli logit farkı {max_rel:.2e}, "
+        f"mutlak logit farkı {max_diff:.2e}, argmax uyumu {agreement:.4f}"
+    )
+    if max_prob > args.tol or max_rel > args.tol or agreement < 1.0:
         tmp_path.unlink(missing_ok=True)
         sys.exit("HATA: ONNX çıktıları PyTorch ile eşleşmiyor; model yazılmadı.")
 
@@ -82,6 +94,8 @@ def main():
         "sha256": sha256_file(out_path),
         "opset": args.opset,
         "max_abs_diff": max_diff,
+        "max_rel_logit_diff": max_rel,
+        "max_prob_diff": max_prob,
         "argmax_agreement": agreement,
         "verified_samples": total,
     }

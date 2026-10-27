@@ -20,7 +20,7 @@ def draw_annotations(img_bgr: np.ndarray, grains, preds: list[tuple[str, float]]
         color = COLORS_BGR[cls]
         c = (g.contour.astype(np.float32) * scale).astype(np.int32)
         cv2.drawContours(overlay, [c], -1, color, -1)
-    out = cv2.addWeighted(overlay, 0.28, out, 0.72, 0)
+    out = cv2.addWeighted(overlay, 0.14, out, 0.86, 0)
 
     for i, (g, (cls, conf)) in enumerate(zip(grains, preds), start=1):
         color = COLORS_BGR[cls]

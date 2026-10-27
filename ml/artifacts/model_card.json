@@ -1,0 +1,249 @@
+{
+  "model_name": "TaneİZ tane sınıflandırıcı",
+  "architecture": "mobilenetv3_large_100",
+  "model_version": "mobilenetv3_large_100-20261027-62a8f96de8",
+  "created_at": "2026-10-27T14:29:42.724176+00:00",
+  "classes": [
+    "SAGLIKLI",
+    "KIRIK_CATLAK"
+  ],
+  "excluded_classes": {
+    "BURUSUK_CILIZ": {
+      "unique_grains": 1,
+      "reason": "< 20 farklı tane"
+    },
+    "LEKELI_RENK_BOZUK": {
+      "unique_grains": 8,
+      "reason": "< 20 farklı tane"
+    },
+    "BOCEK_SUNE_ZARARI": {
+      "unique_grains": 5,
+      "reason": "< 20 farklı tane"
+    }
+  },
+  "unique_grains_per_class": {
+    "SAGLIKLI": 951,
+    "KIRIK_CATLAK": 443
+  },
+  "preprocessing": "grain-neutral-bg-v1",
+  "input_size": 224,
+  "mean": [
+    0.485,
+    0.456,
+    0.406
+  ],
+  "std": [
+    0.229,
+    0.224,
+    0.225
+  ],
+  "datasets": [
+    {
+      "name": "wheatvision",
+      "source": "WheatVision — Mendeley Data, DOI 10.17632/bx27hg9vwd (v1)",
+      "license": "CC BY 4.0",
+      "images_used": 4178
+    }
+  ],
+  "split_counts": {
+    "train": {
+      "KIRIK_CATLAK": 932,
+      "SAGLIKLI": 1993
+    },
+    "val": {
+      "KIRIK_CATLAK": 198,
+      "SAGLIKLI": 428
+    },
+    "test": {
+      "KIRIK_CATLAK": 198,
+      "SAGLIKLI": 429
+    }
+  },
+  "test_set_lock": {
+    "sha256": "1efca530d0c2ade9ee7678500458806c9587f0c74672696df160dce92cb90556",
+    "count": 627
+  },
+  "test_metrics": {
+    "accuracy": 0.9841,
+    "macro_f1": 0.9816,
+    "weighted_f1": 0.9841,
+    "n_test": 627,
+    "per_class": {
+      "SAGLIKLI": {
+        "precision": 0.9929,
+        "recall": 0.9837,
+        "f1": 0.9883,
+        "support": 429
+      },
+      "KIRIK_CATLAK": {
+        "precision": 0.9653,
+        "recall": 0.9848,
+        "f1": 0.975,
+        "support": 198
+      }
+    },
+    "confusion_matrix": [
+      [
+        422,
+        7
+      ],
+      [
+        3,
+        195
+      ]
+    ],
+    "by_dataset": {
+      "wheatvision": 627
+    }
+  },
+  "confusion_matrix_image": "confusion_matrix.png",
+  "samples": {
+    "SAGLIKLI": [
+      {
+        "path": "samples/SAGLIKLI/0.jpg",
+        "true": "SAGLIKLI",
+        "pred": "SAGLIKLI",
+        "confidence": 0.9309
+      },
+      {
+        "path": "samples/SAGLIKLI/1.jpg",
+        "true": "SAGLIKLI",
+        "pred": "SAGLIKLI",
+        "confidence": 0.9946
+      },
+      {
+        "path": "samples/SAGLIKLI/2.jpg",
+        "true": "SAGLIKLI",
+        "pred": "SAGLIKLI",
+        "confidence": 0.9892
+      },
+      {
+        "path": "samples/SAGLIKLI/3.jpg",
+        "true": "SAGLIKLI",
+        "pred": "SAGLIKLI",
+        "confidence": 0.9942
+      }
+    ],
+    "KIRIK_CATLAK": [
+      {
+        "path": "samples/KIRIK_CATLAK/0.jpg",
+        "true": "KIRIK_CATLAK",
+        "pred": "KIRIK_CATLAK",
+        "confidence": 0.9758
+      },
+      {
+        "path": "samples/KIRIK_CATLAK/1.jpg",
+        "true": "KIRIK_CATLAK",
+        "pred": "KIRIK_CATLAK",
+        "confidence": 0.9674
+      },
+      {
+        "path": "samples/KIRIK_CATLAK/2.jpg",
+        "true": "KIRIK_CATLAK",
+        "pred": "KIRIK_CATLAK",
+        "confidence": 0.9995
+      },
+      {
+        "path": "samples/KIRIK_CATLAK/3.jpg",
+        "true": "KIRIK_CATLAK",
+        "pred": "KIRIK_CATLAK",
+        "confidence": 0.9903
+      }
+    ]
+  },
+  "training": {
+    "model_name": "mobilenetv3_large_100",
+    "epochs": 12,
+    "batch_size": 32,
+    "lr": 0.0005,
+    "img_size": 224,
+    "max_per_class": 0,
+    "train_images": 2925,
+    "val_images": 626,
+    "best_val_macro_f1": 0.9799262465929133,
+    "minutes": 75.9,
+    "device": "cpu"
+  },
+  "limitations": [
+    "Model yalnızca şu sınıfları ayırt eder: Sağlıklı, Kırık/Çatlak. Şu sınıflar eğitim verisinde çok az farklı tane olduğu için eğitilmedi: Buruşuk/Cılız (1 tane), Lekeli/Renk (8 tane), Böcek/Süne (5 tane).",
+    "Bölme, aynı tanenin artırılmış kopyaları farklı bölmelere düşmeyecek şekilde tane bazında yapıldı; veri setinin hazır bölmeleri sızıntılı olduğu için kullanılmadı.",
+    "Kaynak veride sınıflar farklı zeminlerde çekildiğinden, eğitim ve çıkarımda tane zeminden ayrılıp beyaz dengesi düzeltilerek nötr zemine konur.",
+    "Model tek tek kırpılmış tane görüntüleriyle eğitildi; açık renkli, düz zemin üzerinde dağıtılmış taneler beklenir.",
+    "Birbirine çok yapışık veya üst üste yığılmış tanelerde segmentasyon hatası, oranları etkileyebilir.",
+    "Eğitim verisi laboratuvar koşullarında çekilmiştir; saha fotoğraflarında doğruluk test setindekinden düşük olabilir.",
+    "Nem oranı fotoğraftan TAHMİN EDİLMEZ; nem ölçer cihazından elle girilir.",
+    "Kalite sınıfı eşikleri demo amaçlıdır, yapılandırılabilir ve resmi bir standart (ör. TS 2974) değildir.",
+    "Az örnekli sınıflarda (bkz. destek sayıları) metrikler istatistiksel olarak daha belirsizdir."
+  ],
+  "onnx": {
+    "file": "model.onnx",
+    "sha256": "c2e6a2c7433157883f27994dbdea2806c618e04ab13703e6844db4c58f5c3a19",
+    "opset": 17,
+    "max_abs_diff": 0.010986328125,
+    "max_rel_logit_diff": 4.111864109290764e-05,
+    "max_prob_diff": 2.1457672119140625e-06,
+    "argmax_agreement": 1.0,
+    "verified_samples": 72
+  },
+  "pipeline_eval": {
+    "description": "Kilitli test setindeki taneler açık zemine dağıtılarak üretilen kompozit numunelerde uçtan uca (segmentasyon + sınıflandırma) ölçüm",
+    "grain_recall": 0.9983,
+    "healthy_ratio_mae": 0.0222,
+    "samples": [
+      {
+        "file": "ornek-1.jpg",
+        "true_grains": 99,
+        "found_grains": 99,
+        "true_healthy": 0.9899,
+        "pred_healthy": 0.9495,
+        "abs_error": 0.0404,
+        "ms": 4893
+      },
+      {
+        "file": "ornek-2.jpg",
+        "true_grains": 97,
+        "found_grains": 97,
+        "true_healthy": 0.9588,
+        "pred_healthy": 0.9278,
+        "abs_error": 0.0309,
+        "ms": 4793
+      },
+      {
+        "file": "ornek-3.jpg",
+        "true_grains": 100,
+        "found_grains": 99,
+        "true_healthy": 0.92,
+        "pred_healthy": 0.9091,
+        "abs_error": 0.0109,
+        "ms": 5984
+      },
+      {
+        "file": "ornek-4.jpg",
+        "true_grains": 96,
+        "found_grains": 96,
+        "true_healthy": 0.875,
+        "pred_healthy": 0.8854,
+        "abs_error": 0.0104,
+        "ms": 4602
+      },
+      {
+        "file": "ornek-5.jpg",
+        "true_grains": 100,
+        "found_grains": 100,
+        "true_healthy": 0.81,
+        "pred_healthy": 0.78,
+        "abs_error": 0.03,
+        "ms": 5202
+      },
+      {
+        "file": "ornek-6.jpg",
+        "true_grains": 95,
+        "found_grains": 95,
+        "true_healthy": 0.6947,
+        "pred_healthy": 0.6842,
+        "abs_error": 0.0105,
+        "ms": 4447
+      }
+    ]
+  }
+}

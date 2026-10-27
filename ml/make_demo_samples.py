@@ -1,4 +1,4 @@
-"""Seed için numune fotoğrafları: KİLİTLİ TEST SETİNDEKİ gerçek tane görüntüleri, açık renkli
+﻿"""Seed için numune fotoğrafları: KİLİTLİ TEST SETİNDEKİ gerçek tane görüntüleri, açık renkli
 zemin üzerine dağıtılarak kompozit "numune fotoğrafı" haline getirilir.
 
 Her kompozitin gerçek sınıf dağılımı manifest.json'a yazılır (dürüstlük için; uygulama
@@ -36,6 +36,15 @@ def cut_grain(img: np.ndarray, target_len: int, rng) -> tuple[np.ndarray, np.nda
     if m is None:
         return None
     x, y, w, h = cv2.boundingRect(m)
+    H, W = m.shape
+    # Kaynak görüntünün kenarına değen maske genelde zemin/gölge parçasıdır → reddet
+    if x <= 2 or y <= 2 or x + w >= W - 2 or y + h >= H - 2:
+        return None
+    cs, _ = cv2.findContours(m, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    c = max(cs, key=cv2.contourArea)
+    solidity = cv2.contourArea(c) / max(cv2.contourArea(cv2.convexHull(c)), 1)
+    if solidity < 0.85:  # tane dışbükeye yakındır; düzensiz şekil = hatalı kesim
+        return None
     crop, mk = img[y : y + h, x : x + w], m[y : y + h, x : x + w]
     s = target_len / max(w, h) * rng.uniform(0.9, 1.1)
     crop = cv2.resize(crop, None, fx=s, fy=s, interpolation=cv2.INTER_AREA)
@@ -51,18 +60,28 @@ def cut_grain(img: np.ndarray, target_len: int, rng) -> tuple[np.ndarray, np.nda
     return crop, mk
 
 
-def compose(rows: pd.DataFrame, raw_dir: Path, rng, size=(2000, 2600), grain_len=110):
+def iter_cuts(pool: pd.DataFrame, raw_dir: Path, grain_len: int, rng):
+    """Sınıf havuzundan, temiz kesilebilen taneleri sırayla verir (hatalı kesimler atlanır)."""
+    for _, row in pool.sample(frac=1, random_state=int(rng.integers(1e9))).iterrows():
+        cut = cut_grain(load_rgb(raw_dir / row["path"]), grain_len, rng)
+        if cut is not None:
+            yield row["label"], cut
+
+
+def compose(wanted: dict[str, int], pools: dict[str, pd.DataFrame], raw_dir: Path, rng, size=(2000, 2600), grain_len=170):
     H, W = size
     canvas = random_light_background(H, W, rng).astype(np.float32)
     cols, rws = 13, 10
     cells = [(c, r) for r in range(rws) for c in range(cols)]
     rng.shuffle(cells)
+    items = []
+    for cls, k in wanted.items():
+        gen = iter_cuts(pools[cls], raw_dir, grain_len, rng)
+        items += [next(gen) for _ in range(k)]
+    order = rng.permutation(len(items))
     used, labels = 0, []
-    for (_, row), (c, r) in zip(rows.iterrows(), cells):
-        cut = cut_grain(load_rgb(raw_dir / row["path"]), grain_len, rng)
-        if cut is None:
-            continue
-        crop, mk = cut
+    for idx, (c, r) in zip(order, cells):
+        label, (crop, mk) = items[idx]
         cx = int((c + 0.5) * W / cols + rng.uniform(-18, 18))
         cy = int((r + 0.5) * H / rws + rng.uniform(-18, 18))
         h, w = crop.shape[:2]
@@ -76,7 +95,7 @@ def compose(rows: pd.DataFrame, raw_dir: Path, rng, size=(2000, 2600), grain_len
         if region.shape[:2] == sh.shape[:2]:
             region *= 1 - sh
         canvas[y0 : y0 + h, x0 : x0 + w] = crop * a + canvas[y0 : y0 + h, x0 : x0 + w] * (1 - a)
-        labels.append(row["label"])
+        labels.append(label)
         used += 1
     return cv2.cvtColor(canvas.astype(np.uint8), cv2.COLOR_RGB2BGR), labels
 
@@ -98,15 +117,11 @@ def main():
     for name, healthy_ratio in PROFILES:
         n_h = round(args.grains * healthy_ratio)
         n_d = args.grains - n_h
-        parts = [by_class["SAGLIKLI"].sample(n_h, replace=len(by_class["SAGLIKLI"]) < n_h, random_state=int(rng.integers(1e9)))]
+        wanted = {"SAGLIKLI": n_h}
         if n_d and defects:
-            weights = rng.dirichlet(np.ones(len(defects)))
-            alloc = rng.multinomial(n_d, weights)
-            for c, k in zip(defects, alloc):
-                if k:
-                    parts.append(by_class[c].sample(k, replace=len(by_class[c]) < k, random_state=int(rng.integers(1e9))))
-        rows = pd.concat(parts).sample(frac=1, random_state=int(rng.integers(1e9)))
-        img, labels = compose(rows, args.raw_dir, rng)
+            alloc = rng.multinomial(n_d, rng.dirichlet(np.ones(len(defects))))
+            wanted.update({c: int(k) for c, k in zip(defects, alloc) if k})
+        img, labels = compose(wanted, by_class, args.raw_dir, rng)
         file = f"{name}.jpg"
         imwrite_unicode(args.out / file, img, [cv2.IMWRITE_JPEG_QUALITY, 90])
         truth = {c: labels.count(c) for c in CLASSES}

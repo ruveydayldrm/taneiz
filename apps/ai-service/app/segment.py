@@ -20,24 +20,27 @@ class Grain:
     area: float
 
 
+MIN_COLOR_DISTANCE = 14  # LAB'de zeminden en az bu kadar farklı pikseller tane adayıdır
+
+
 def _foreground_mask(work: np.ndarray) -> np.ndarray:
+    # Ön plan = yerel zemin renginden LAB uzaklığı. Yalnızca "koyuluk/doygunluk"a bakmak
+    # siyah-beyaz ya da çok açık renkli taneleri kaçırıyor ve tanenin parlak kısımlarını kesiyordu.
     lab = cv2.cvtColor(work, cv2.COLOR_BGR2LAB)
-    L = lab[:, :, 0]
-    S = cv2.cvtColor(work, cv2.COLOR_BGR2HSV)[:, :, 1]
+    h, w = lab.shape[:2]
+    small = cv2.resize(lab, (max(w // 8, 1), max(h // 8, 1)), interpolation=cv2.INTER_AREA)
+    # Taneler küçük olduğundan büyük çekirdekli medyan, yerel zemin rengini verir (aydınlatma gradyanı dahil)
+    k = max(5, (min(small.shape[:2]) // 5) | 1)
+    bg = cv2.medianBlur(small, min(k, 255))
+    bg = cv2.resize(cv2.GaussianBlur(bg, (0, 0), 3), (w, h), interpolation=cv2.INTER_LINEAR)
 
-    # Zemin aydınlatmasını kestir: küçült → max filtre (taneleri sil) → bulanıklaştır → büyüt
-    h, w = L.shape
-    small = cv2.resize(L, (max(w // 8, 1), max(h // 8, 1)), interpolation=cv2.INTER_AREA)
-    k = max(3, (min(small.shape) // 12) | 1)
-    bg = cv2.dilate(small, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k)))
-    bg = cv2.GaussianBlur(bg, (0, 0), k / 2)
-    bg = cv2.resize(bg, (w, h), interpolation=cv2.INTER_LINEAR)
-
-    darkness = cv2.subtract(bg, L)  # tane zeminden koyu
-    sat = cv2.subtract(S, np.full_like(S, int(np.median(S))))  # tane zeminden doygun
-    feat = cv2.addWeighted(darkness, 0.65, sat, 0.6, 0)
-    feat = cv2.GaussianBlur(feat, (5, 5), 0)
-    _, mask = cv2.threshold(feat, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    diff = lab.astype(np.float32) - bg.astype(np.float32)
+    diff[..., 0] *= 0.8  # parlaklık farkına (gölge) renk farkından biraz daha az ağırlık
+    dist = np.sqrt((diff**2).sum(axis=2))
+    feat = cv2.GaussianBlur(np.clip(dist * 4, 0, 255).astype(np.uint8), (5, 5), 0)
+    otsu, _ = cv2.threshold(feat, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    # Boş zeminde Otsu gürültüyü ayırır; mutlak bir alt sınırla bunu engelle
+    _, mask = cv2.threshold(feat, max(otsu, MIN_COLOR_DISTANCE * 4), 255, cv2.THRESH_BINARY)
 
     # Kenarların çoğu ön plan çıktıysa (koyu zemin) ters çevir
     border = np.concatenate([mask[0, :], mask[-1, :], mask[:, 0], mask[:, -1]])

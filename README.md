@@ -38,6 +38,42 @@ TaneİZ addresses both problems:
 3. **Verify:** a public, login-free **Product Passport** recomputes the hash from the current database
    record and compares it with the chain. Change one number in the DB and it reports **MISMATCH**.
 
+## Results
+
+Trained on [WheatVision](https://doi.org/10.17632/bx27hg9vwd) (CC BY 4.0) with MobileNetV3-Large
+(`timm`, ImageNet-pretrained) on a laptop CPU in 76 min. Exported to ONNX (16 MB) for CPU inference.
+
+**Classifier: locked test set** (627 images of kernels never seen in training)
+
+| | Precision | Recall | F1 | n |
+|---|---|---|---|---|
+| Healthy | 0.99 | 0.98 | 0.99 | 429 |
+| Mechanical damage | 0.97 | 0.98 | 0.97 | 198 |
+| **Accuracy 98.4% · macro-F1 0.982** | | | | |
+
+<img src="ml/artifacts/confusion_matrix.png" width="420" alt="Confusion matrix on the locked test set">
+
+**Full pipeline: segmentation + classification on sample photos.** Real test-set kernels are scattered
+on a light background, and each composite's true composition is known.
+
+| Metric | Value |
+|---|---|
+| Kernels found | **99.8%** (586 / 587) |
+| Healthy-ratio mean absolute error | **2.2 percentage points** |
+| Latency per photo (~100 kernels, laptop CPU) | ~3.5 s |
+| PyTorch ↔ ONNX max probability difference | 2 × 10⁻⁶ (argmax agreement 100%) |
+
+**Data issues found and fixed before training** (details in [ml/DATASETS.md](ml/DATASETS.md)):
+- **Leakage:** Roboflow augmentation copies are spread across the dataset's own train/valid/test
+  splits (956 of 1,494 kernels appear in more than one split). The data is re-split by kernel, so no
+  kernel appears in more than one split.
+- **Background shortcut:** healthy and damaged kernels were photographed on different backgrounds and at
+  different scales. At train and inference time each kernel is segmented, white-balanced against its
+  background, placed on a neutral background and cropped tightly. A parity test guarantees both sides
+  match.
+- **Too few samples:** stain (8 kernels), insect (5) and shriveled (1) cannot be evaluated honestly.
+  They are excluded and listed in the model card; the UI shows them as "not measured", not 0%.
+
 ## Architecture
 
 ```mermaid
@@ -142,7 +178,10 @@ npm run dev            # terminal 4: http://localhost:3000
 Demo accounts (password `taneiz123`): `uretici@` (producer), `depo@` (warehouse), `alici@` (buyer),
 `admin@taneiz.demo`. The login page also offers one-click sign-in.
 
-**Training the model:** download the datasets ([ml/DATASETS.md](ml/DATASETS.md)), run
+The trained `model.onnx`, its model card and the seed sample photos are committed, so `npm run seed`
+works out of the box. **Retraining:** download the datasets ([ml/DATASETS.md](ml/DATASETS.md)), then
+`cd ml && python prepare_data.py && python train.py --model mobilenetv3_large_100 && python evaluate.py && python export_onnx.py`
+(about 1.5 h on a laptop CPU), or run
 [`ml/train_colab.ipynb`](ml/train_colab.ipynb) on a free Colab T4 (under an hour), unzip the artifacts into
 `ml/artifacts/` and `apps/web/prisma/seed-samples/`, restart the AI service, then run `npm run seed`.
 
@@ -160,7 +199,8 @@ cd apps/ai-service && python -m pytest -q    # segmentation, watershed split, QC
 - [x] Inference service: segmentation, classification and annotation, tested with an integration model
 - [x] Web app: passport, verification, producer wizard, warehouse/buyer flows, tamper demo
 - [x] Training pipeline: prepare, train, evaluate, export, plus Colab notebook
-- [ ] Train on the public datasets and publish real test-set metrics in the model card
+- [x] Trained on WheatVision; real locked-test-set and end-to-end metrics published in the model card
+- [ ] More defect classes (stain, insect/sunn-pest, mold, shriveled) via GrainSet and a sunn-pest dataset
 - [ ] Screenshots / short demo GIF
 - [ ] Docker Compose run verified on a clean machine
 

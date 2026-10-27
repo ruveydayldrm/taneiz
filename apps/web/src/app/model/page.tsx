@@ -90,6 +90,50 @@ export default async function ModelPage() {
           </div>
         </section>
 
+        {card.pipeline_eval && (
+          <section>
+            <p className="eyebrow">Uçtan uca · segmentasyon + sınıflandırma</p>
+            <h2 className="display mt-1 text-3xl font-semibold">Numune fotoğrafında ne kadar tutuyor?</h2>
+            <p className="mt-1 max-w-3xl text-sm text-ink-mute">{card.pipeline_eval.description}.</p>
+            <div className="mt-5 grid gap-5 lg:grid-cols-[280px_1fr]">
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-1">
+                <div className="paper-card p-5">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-mute">Tane bulma oranı</p>
+                  <p className="display text-4xl font-semibold text-field-600">{pct(card.pipeline_eval.grain_recall)}</p>
+                </div>
+                <div className="paper-card p-5">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-mute">Sağlıklı oranı ort. hata</p>
+                  <p className="display text-4xl font-semibold">{(card.pipeline_eval.healthy_ratio_mae * 100).toFixed(1)} puan</p>
+                </div>
+              </div>
+              <div className="paper-card overflow-x-auto">
+                <table className="w-full min-w-[460px] text-sm">
+                  <thead className="bg-paper-2/60 text-left text-[11px] uppercase tracking-wider text-ink-mute">
+                    <tr>
+                      <th className="p-3">Numune</th>
+                      <th className="p-3 text-right">Tane</th>
+                      <th className="p-3 text-right">Gerçek sağlıklı</th>
+                      <th className="p-3 text-right">Tahmin</th>
+                      <th className="p-3 text-right">Süre</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-ink/5 font-mono tabular-nums">
+                    {card.pipeline_eval.samples.map((s) => (
+                      <tr key={s.file}>
+                        <td className="p-3 font-sans font-semibold">{s.file.replace(".jpg", "")}</td>
+                        <td className="p-3 text-right">{s.found_grains}/{s.true_grains}</td>
+                        <td className="p-3 text-right">{pct(s.true_healthy)}</td>
+                        <td className="p-3 text-right font-bold">{pct(s.pred_healthy)}</td>
+                        <td className="p-3 text-right text-ink-mute">{(s.ms / 1000).toFixed(1)} sn</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        )}
+
         {card.samples && Object.keys(card.samples).length > 0 && (
           <section>
             <p className="eyebrow">Test setinden örnekler</p>
@@ -149,7 +193,10 @@ export default async function ModelPage() {
               {card.onnx && (
                 <>
                   <Dl k="ONNX opset" v={String(card.onnx.opset)} />
-                  <Dl k="PyTorch↔ONNX fark" v={card.onnx.max_abs_diff.toExponential(2)} />
+                  <Dl
+                    k="PyTorch↔ONNX olasılık farkı"
+                    v={(card.onnx.max_prob_diff ?? card.onnx.max_abs_diff).toExponential(2)}
+                  />
                   <Dl k="Argmax uyumu" v={pct(card.onnx.argmax_agreement)} />
                 </>
               )}
