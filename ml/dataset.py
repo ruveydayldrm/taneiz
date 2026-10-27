@@ -11,7 +11,18 @@ from PIL import Image, ImageFilter
 from torch.utils.data import Dataset
 from torchvision import transforms as T
 
-from common import CLASSES, IMAGENET_MEAN, IMAGENET_STD, corner_color, grain_mask, pad_to_square, random_light_background
+from common import CLASSES, IMAGENET_MEAN, IMAGENET_STD, corner_color, normalize_grain, pad_to_square
+
+
+class NormalizeGrain:
+    """Eğitim ve değerlendirmede, çıkarımla aynı zemin nötrleştirme + kırpma."""
+
+    def __call__(self, img: Image.Image) -> Image.Image:
+        arr = np.array(img)
+        if max(arr.shape[:2]) > 640:
+            s = 640 / max(arr.shape[:2])
+            arr = cv2.resize(arr, None, fx=s, fy=s, interpolation=cv2.INTER_AREA)
+        return Image.fromarray(normalize_grain(arr))
 
 
 class PadToSquare:
@@ -30,29 +41,6 @@ class RandomRotateFill:
         return img.rotate(random.uniform(-self.degrees, self.degrees), resample=Image.BILINEAR, fillcolor=fill)
 
 
-class RandomBackgroundSwap:
-    """Taneyi segmentleyip rastgele açık renkli zemine yapıştırır. Eğitim setlerinin zeminleri
-    ile sahadaki (kâğıt/tepsi) zemin farklı olduğundan, modelin zemine değil taneye bakmasını sağlar."""
-
-    def __init__(self, p: float = 0.5):
-        self.p = p
-        self.rng = np.random.default_rng()
-
-    def __call__(self, img: Image.Image) -> Image.Image:
-        if random.random() > self.p:
-            return img
-        arr = np.array(img)
-        if max(arr.shape[:2]) > 320:
-            s = 320 / max(arr.shape[:2])
-            arr = cv2.resize(arr, None, fx=s, fy=s, interpolation=cv2.INTER_AREA)
-        m = grain_mask(arr)
-        if m is None:
-            return img
-        bg = random_light_background(*arr.shape[:2], self.rng)
-        alpha = cv2.GaussianBlur(m, (5, 5), 0)[..., None] / 255.0
-        return Image.fromarray((arr * alpha + bg * (1 - alpha)).astype(np.uint8))
-
-
 class RandomBlur:
     def __init__(self, p: float = 0.3):
         self.p = p
@@ -66,16 +54,17 @@ class RandomBlur:
 def build_transforms(size: int, train: bool):
     norm = [T.ToTensor(), T.Normalize(IMAGENET_MEAN, IMAGENET_STD)]
     if not train:
-        return T.Compose([PadToSquare(), T.Resize((size, size), antialias=True), *norm])
+        return T.Compose([NormalizeGrain(), PadToSquare(), T.Resize((size, size), antialias=True), *norm])
     return T.Compose(
         [
-            RandomBackgroundSwap(0.5),
+            NormalizeGrain(),
             PadToSquare(),
             RandomRotateFill(180),
             T.RandomHorizontalFlip(),
             T.RandomVerticalFlip(),
-            T.RandomResizedCrop(size, scale=(0.75, 1.0), ratio=(0.9, 1.1), antialias=True),
-            T.ColorJitter(brightness=0.35, contrast=0.25, saturation=0.15, hue=0.02),
+            T.RandomResizedCrop(size, scale=(0.8, 1.0), ratio=(0.9, 1.1), antialias=True),
+            T.ColorJitter(brightness=0.25, contrast=0.2, saturation=0.15, hue=0.02),
+            T.RandomGrayscale(p=0.1),
             RandomBlur(0.3),
             *norm,
         ]
@@ -83,14 +72,22 @@ def build_transforms(size: int, train: bool):
 
 
 class GrainDataset(Dataset):
-    def __init__(self, csv_path: Path, raw_dir: Path, transform, max_per_class: int | None = None, seed: int = 0):
+    def __init__(
+        self,
+        csv_path: Path,
+        raw_dir: Path,
+        transform,
+        classes: list[str] = CLASSES,
+        max_per_class: int | None = None,
+        seed: int = 0,
+    ):
         df = pd.read_csv(csv_path)
         if max_per_class:
             df = df.groupby("label", group_keys=False).apply(lambda g: g.sample(min(len(g), max_per_class), random_state=seed))
         self.df = df.reset_index(drop=True)
         self.raw_dir = raw_dir
         self.transform = transform
-        self.targets = [CLASSES.index(l) for l in self.df["label"]]
+        self.targets = [classes.index(l) for l in self.df["label"]]
 
     def __len__(self):
         return len(self.df)

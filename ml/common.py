@@ -81,6 +81,39 @@ def grain_mask(img_rgb: np.ndarray) -> np.ndarray | None:
     return filled
 
 
+NEUTRAL_BG = (226, 226, 226)
+PREPROCESS_VERSION = "grain-neutral-bg-v1"
+
+
+def normalize_grain(img_rgb: np.ndarray, mask: np.ndarray | None = None, pad: float = 0.12) -> np.ndarray:
+    """Zemin kısayolunu ortadan kaldırır: zemin rengine göre beyaz dengesi + parlaklık düzeltmesi,
+    taneyi sabit nötr zemine yerleştirme ve tanenin etrafından kırpma (ölçek kısayolu da kalkar).
+    apps/ai-service/app/preprocess.py içindeki eşiyle BİREBİR aynı olmalı."""
+    if mask is None:
+        mask = grain_mask(img_rgb)
+    if mask is None or mask.max() == 0:
+        return img_rgb
+    bg_region = cv2.erode(cv2.bitwise_not(mask), np.ones((7, 7), np.uint8)) > 0
+    img = img_rgb.astype(np.float32)
+    if bg_region.sum() > 50:
+        bg_mean = img[bg_region].mean(axis=0) + 1e-3
+        img = np.clip(img * (np.array(NEUTRAL_BG, np.float32) / bg_mean), 0, 255)
+    alpha = cv2.GaussianBlur(mask, (3, 3), 0)[..., None].astype(np.float32) / 255.0
+    out = img * alpha + np.array(NEUTRAL_BG, np.float32) * (1 - alpha)
+    x, y, w, h = cv2.boundingRect(mask)
+    px, py = int(w * pad), int(h * pad)
+    H, W = mask.shape
+    return out[max(0, y - py) : min(H, y + h + py), max(0, x - px) : min(W, x + w + px)].astype(np.uint8)
+
+
+def imwrite_unicode(path: str | Path, img_bgr: np.ndarray, params: list[int] | None = None) -> None:
+    """cv2.imwrite Windows'ta ASCII dışı yollarda (ör. 'Masaüstü') sessizce başarısız olur."""
+    ok, buf = cv2.imencode(Path(path).suffix or ".jpg", img_bgr, params or [])
+    if not ok:
+        raise RuntimeError(f"Görüntü kodlanamadı: {path}")
+    buf.tofile(str(path))
+
+
 def random_light_background(h: int, w: int, rng: np.random.Generator) -> np.ndarray:
     base = rng.integers(205, 245, size=3)
     tint = rng.integers(-8, 8, size=3)

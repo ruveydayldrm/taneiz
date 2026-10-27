@@ -50,6 +50,8 @@ export interface ModelCard {
   created_at: string;
   classes: string[];
   input_size: number;
+  preprocessing?: string;
+  excluded_classes?: Record<string, { unique_grains: number; reason: string }>;
   datasets: { name: string; source: string; license: string; images_used: number }[];
   split_counts: Record<string, Record<string, number>>;
   test_metrics: {

@@ -75,7 +75,7 @@ def main():
     model.load_state_dict(ckpt["state_dict"])
     model.eval().to(device)
 
-    ds = GrainDataset(args.splits / "test.csv", args.raw_dir, build_transforms(ckpt["img_size"], False))
+    ds = GrainDataset(args.splits / "test.csv", args.raw_dir, build_transforms(ckpt["img_size"], False), classes)
     dl = DataLoader(ds, 128, num_workers=2)
     ys, ps, confs = [], [], []
     with torch.no_grad():
@@ -134,6 +134,9 @@ def main():
         "model_version": f"{ckpt['model_name']}-{datetime.now(timezone.utc):%Y%m%d}-{weights_hash}",
         "created_at": datetime.now(timezone.utc).isoformat(),
         "classes": classes,
+        "excluded_classes": report.get("excluded_classes", {}),
+        "unique_grains_per_class": report.get("unique_grains_per_class", {}),
+        "preprocessing": ckpt.get("preprocessing", "none"),
         "input_size": ckpt["img_size"],
         "mean": ckpt["mean"],
         "std": ckpt["std"],
@@ -170,6 +173,19 @@ def main():
         "samples": samples,
         "training": training,
         "limitations": [
+            *(
+                [
+                    "Model yalnızca şu sınıfları ayırt eder: "
+                    + ", ".join(LABELS_TR[c] for c in classes)
+                    + ". Şu sınıflar eğitim verisinde çok az farklı tane olduğu için eğitilmedi: "
+                    + ", ".join(f"{LABELS_TR.get(c, c)} ({v['unique_grains']} tane)" for c, v in report.get("excluded_classes", {}).items())
+                    + "."
+                ]
+                if report.get("excluded_classes")
+                else []
+            ),
+            "Bölme, aynı tanenin artırılmış kopyaları farklı bölmelere düşmeyecek şekilde tane bazında yapıldı; veri setinin hazır bölmeleri sızıntılı olduğu için kullanılmadı.",
+            "Kaynak veride sınıflar farklı zeminlerde çekildiğinden, eğitim ve çıkarımda tane zeminden ayrılıp beyaz dengesi düzeltilerek nötr zemine konur.",
             "Model tek tek kırpılmış tane görüntüleriyle eğitildi; açık renkli, düz zemin üzerinde dağıtılmış taneler beklenir.",
             "Birbirine çok yapışık veya üst üste yığılmış tanelerde segmentasyon hatası, oranları etkileyebilir.",
             "Eğitim verisi laboratuvar koşullarında çekilmiştir; saha fotoğraflarında doğruluk test setindekinden düşük olabilir.",

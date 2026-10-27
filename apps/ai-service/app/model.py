@@ -38,6 +38,8 @@ class GrainClassifier:
         self.mean = np.array(self.card.get("mean", IMAGENET_MEAN), dtype=np.float32)
         self.std = np.array(self.card.get("std", IMAGENET_STD), dtype=np.float32)
         self.version: str = self.card.get("model_version", "bilinmiyor")
+        # Modelin eğitildiği ön işleme; çıkarımda aynısı uygulanır (bkz. preprocess.normalize_grain)
+        self.preprocessing: str = self.card.get("preprocessing", "none")
 
         opts = ort.SessionOptions()
         opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL

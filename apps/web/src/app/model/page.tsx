@@ -143,6 +143,7 @@ export default async function ModelPage() {
             <dl className="space-y-2 text-sm">
               <Dl k="Mimari" v={card.architecture} />
               <Dl k="Girdi" v={`${card.input_size}×${card.input_size} RGB`} />
+              {card.preprocessing && <Dl k="Ön işleme" v={card.preprocessing} />}
               <Dl k="Oluşturma" v={formatDate(card.created_at)} />
               {card.training?.minutes != null && <Dl k="Eğitim süresi" v={`${card.training.minutes} dk (${card.training.device})`} />}
               {card.onnx && (

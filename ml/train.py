@@ -23,7 +23,7 @@ from sklearn.metrics import f1_score
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from common import ARTIFACTS_DIR, CLASSES, IMAGENET_MEAN, IMAGENET_STD, RAW_DIR, SPLITS_DIR
+from common import ARTIFACTS_DIR, CLASSES, IMAGENET_MEAN, IMAGENET_STD, PREPROCESS_VERSION, RAW_DIR, SPLITS_DIR
 from dataset import GrainDataset, build_transforms
 
 
@@ -66,16 +66,22 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Cihaz: {device}")
 
-    train_ds = GrainDataset(args.splits / "train.csv", args.raw_dir, build_transforms(args.img_size, True), args.max_per_class or None, args.seed)
-    val_ds = GrainDataset(args.splits / "val.csv", args.raw_dir, build_transforms(args.img_size, False))
+    report_file = args.splits / "report.json"
+    classes = json.loads(report_file.read_text(encoding="utf-8")).get("classes", CLASSES) if report_file.exists() else CLASSES
+    print(f"Sınıflar: {classes}")
+
+    train_ds = GrainDataset(
+        args.splits / "train.csv", args.raw_dir, build_transforms(args.img_size, True), classes, args.max_per_class or None, args.seed
+    )
+    val_ds = GrainDataset(args.splits / "val.csv", args.raw_dir, build_transforms(args.img_size, False), classes)
     print(f"Eğitim: {len(train_ds)}  Doğrulama: {len(val_ds)}")
 
     train_dl = DataLoader(train_ds, args.batch_size, shuffle=True, num_workers=args.workers, pin_memory=True, drop_last=True, persistent_workers=args.workers > 0)
     val_dl = DataLoader(val_ds, args.batch_size * 2, num_workers=args.workers, pin_memory=True)
 
-    model = timm.create_model(args.model, pretrained=True, num_classes=len(CLASSES)).to(device)
-    weights = class_weights(train_ds.targets, len(CLASSES)).to(device)
-    print("Sınıf ağırlıkları:", {c: round(float(w), 2) for c, w in zip(CLASSES, weights)})
+    model = timm.create_model(args.model, pretrained=True, num_classes=len(classes)).to(device)
+    weights = class_weights(train_ds.targets, len(classes)).to(device)
+    print("Sınıf ağırlıkları:", {c: round(float(w), 2) for c, w in zip(classes, weights)})
     criterion = nn.CrossEntropyLoss(weight=weights, label_smoothing=0.05)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=1e-4)
     total = args.epochs * len(train_dl)
@@ -110,7 +116,8 @@ def main():
                 {
                     "state_dict": model.state_dict(),
                     "model_name": args.model,
-                    "classes": CLASSES,
+                    "classes": classes,
+                    "preprocessing": PREPROCESS_VERSION,
                     "img_size": args.img_size,
                     "mean": IMAGENET_MEAN,
                     "std": IMAGENET_STD,

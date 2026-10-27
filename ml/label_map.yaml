@@ -15,24 +15,26 @@ target_classes:
 
 datasets:
   wheatvision:
-    dir: WheatVision
-    source: "Mendeley Data, DOI 10.17632/bx27hg9vwd"
-    license: "CC BY 4.0 (Mendeley sayfasından doğrulayın)"
+    # Mendeley v1: train.zip / valid.zip / test.zip → WheatVision_src/<bölme>/images/<etiket>/*.jpg
+    # (Roboflow dışa aktarımı; YOLO poligon işaretlemeleri annotations/ altında, kullanılmıyor.)
+    # Veri setinin kendi bölmeleri KULLANILMAZ: aynı tanenin artırılmış kopyaları farklı bölmelere
+    # dağılmış (sızıntı). Tüm bölmeler birleştirilip tane bazında yeniden bölünür.
+    dir: WheatVision_src
+    label_glob: "*/images/*"
+    source: "WheatVision — Mendeley Data, DOI 10.17632/bx27hg9vwd (v1)"
+    license: "CC BY 4.0"
+    # Roboflow her fotoğrafı "<orijinal>_jpg.rf.<hash>.jpg" adıyla çoğaltır → orijinal ad = grup
+    group_regex: "^(.*?)_(?:jpe?g|png)\\.rf\\."
     labels:
-      # VARSAYIM: klasör adları aşağıdaki gibi; indirilen sürüme göre düzeltin.
       healthy: SAGLIKLI
-      sound: SAGLIKLI
-      broken: KIRIK_CATLAK
-      cracked: KIRIK_CATLAK
-      insect_damaged: BOCEK_SUNE_ZARARI
-      sunn_pest: BOCEK_SUNE_ZARARI
-      moldy: KUFLU
-      mouldy: KUFLU
-      discolored: LEKELI_RENK_BOZUK
-      black_point: LEKELI_RENK_BOZUK
-      shriveled: BURUSUK_CILIZ
-      shrunken: BURUSUK_CILIZ
-      foreign_material: null
+      damage: KIRIK_CATLAK # mekanik hasar: çatlak, ezik, delik
+      staindamage: LEKELI_RENK_BOZUK
+      insectdamage: BOCEK_SUNE_ZARARI
+      shriveledseed: BURUSUK_CILIZ
+      healthy-70-60: null # kabuklu/farklı görünümlü taneler; anlamı belgelenmemiş
+      healthy-50-40: null
+      objects: null
+      unknown: null
 
   grainset:
     dir: GrainSet/wheat

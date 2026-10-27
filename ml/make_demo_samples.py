@@ -16,7 +16,7 @@ import cv2
 import numpy as np
 import pandas as pd
 
-from common import CLASSES, ML_DIR, RAW_DIR, SPLITS_DIR, grain_mask, load_rgb, random_light_background, write_json
+from common import CLASSES, ML_DIR, RAW_DIR, SPLITS_DIR, grain_mask, imwrite_unicode, load_rgb, random_light_background, write_json
 
 OUT_DIR = ML_DIR.parent / "apps" / "web" / "prisma" / "seed-samples"
 
@@ -108,7 +108,7 @@ def main():
         rows = pd.concat(parts).sample(frac=1, random_state=int(rng.integers(1e9)))
         img, labels = compose(rows, args.raw_dir, rng)
         file = f"{name}.jpg"
-        cv2.imwrite(str(args.out / file), img, [cv2.IMWRITE_JPEG_QUALITY, 90])
+        imwrite_unicode(args.out / file, img, [cv2.IMWRITE_JPEG_QUALITY, 90])
         truth = {c: labels.count(c) for c in CLASSES}
         manifest.append({"file": file, "grains": len(labels), "true_counts": truth, "source": "kilitli test seti"})
         print(f"{file}: {len(labels)} tane, gerçek sağlıklı oranı %{truth['SAGLIKLI'] / max(1, len(labels)) * 100:.1f}")

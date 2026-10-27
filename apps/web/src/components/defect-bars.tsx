@@ -28,6 +28,18 @@ export function DefectBars({ ratios, counts }: { ratios: Record<string, number>;
 
       <ul className="mt-4 space-y-3">
         {defects.map((c) => {
+          // Modelin hiç ölçmediği sınıf: oranlarda anahtar yoktur → "%0" değil "ölçülmüyor"
+          if (!(c in ratios)) {
+            return (
+              <li key={c} className="flex items-center justify-between gap-3 opacity-55">
+                <span className="flex items-center gap-2 text-[13px] font-medium">
+                  <span className="size-2.5 rounded-sm bg-ink/20" />
+                  {CLASS_META[c].label}
+                </span>
+                <span className="text-[11px] font-semibold text-ink-mute">modelde yok · ölçülmüyor</span>
+              </li>
+            );
+          }
           const v = ratios[c] ?? 0;
           // Kusurlar küçük oranlar: %20'yi tam genişlik kabul et ki farklar görünsün
           const w = Math.min(100, (v / 0.2) * 100);

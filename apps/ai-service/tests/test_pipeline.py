@@ -39,6 +39,7 @@ class _StubClassifier:
     """YALNIZCA TEST: segmentasyon + açıklama hattını model olmadan sınamak için."""
 
     version = "test-stub"
+    preprocessing = "grain-neutral-bg-v1"
 
     def predict(self, crops):
         return [("SAGLIKLI" if i % 5 else "KIRIK_CATLAK", 0.9) for i in range(len(crops))]

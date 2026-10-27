@@ -39,11 +39,12 @@ def draw_annotations(img_bgr: np.ndarray, grains, preds: list[tuple[str, float]]
     counts = {k: 0 for k in CLASSES}
     for cls, _ in preds:
         counts[cls] += 1
+    shown = [c for c in CLASSES if c == "SAGLIKLI" or counts[c] > 0]
     bar_h = max(36, out.shape[0] // 18)
     bar = np.full((bar_h, out.shape[1], 3), (22, 26, 27), dtype=np.uint8)
     x = 12
     fs = bar_h / 70
-    for cls in CLASSES:
+    for cls in shown:
         label = f"{LABELS_TR[cls]} {counts[cls]}"
         (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, fs, 1)
         if x + tw + 40 > out.shape[1]:

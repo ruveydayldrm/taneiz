@@ -6,7 +6,7 @@ from .annotate import draw_annotations, to_jpeg_base64
 from .classes import CLASSES
 from .grading import grade
 from .model import GrainClassifier
-from .preprocess import crop_grain
+from .preprocess import PREPROCESS_VERSION, crop_grain, normalize_grain
 from .quality import check_image_quality
 from .segment import segment_grains
 
@@ -26,7 +26,10 @@ def analyze_images(images_bgr: list[np.ndarray], clf: GrainClassifier, rules: di
         quality = check_image_quality(img)
         warnings += [f"Fotoğraf {idx + 1}: {w}" for w in quality["warnings"]]
         grains, rejected = segment_grains(img)
-        crops = [crop_grain(img, g.bbox) for g in grains]
+        crops = []
+        for g in grains:
+            crop, mask = crop_grain(img, g.bbox, g.contour)
+            crops.append(normalize_grain(crop, mask) if clf.preprocessing == PREPROCESS_VERSION else crop)
         preds = clf.predict(crops) if crops else []
         all_preds += preds
         annotated = draw_annotations(img, grains, preds)
@@ -50,7 +53,8 @@ def analyze_images(images_bgr: list[np.ndarray], clf: GrainClassifier, rules: di
             "Fotoğrafta tane bulunamadı. Taneleri açık renkli, düz bir zemine birbirine değmeyecek şekilde dağıtıp tekrar çekin."
         )
 
-    counts = {c: 0 for c in CLASSES}
+    # Yalnızca modelin bildiği sınıflar raporlanır; diğerleri "ölçülmedi"dir, %0 değil.
+    counts = {c: 0 for c in CLASSES if c in getattr(clf, "classes", CLASSES)}
     for cls, _ in all_preds:
         counts[cls] = counts.get(cls, 0) + 1
     ratios = {c: counts[c] / n for c in counts}

@@ -29,7 +29,7 @@ def norm(s: str) -> str:
 
 def scan(raw_dir: Path, label_map: dict):
     targets = label_map["target_classes"]
-    rows, report, unmapped = [], {}, defaultdict(list)
+    rows, report, unmapped = [], {}, defaultdict(Counter)
     for ds_name, ds in label_map["datasets"].items():
         root = raw_dir / ds["dir"]
         if not root.exists():
@@ -38,11 +38,12 @@ def scan(raw_dir: Path, label_map: dict):
         mapping = {norm(k): v for k, v in (ds.get("labels") or {}).items()}
         group_re = re.compile(ds["group_regex"], re.IGNORECASE) if ds.get("group_regex") else None
         src_counts = Counter()
-        for folder in sorted(p for p in root.iterdir() if p.is_dir()):
+        # label_glob: etiket klasörlerinin konumu (ör. "*/images/*" → <bölme>/images/<etiket>)
+        for folder in sorted(p for p in root.glob(ds.get("label_glob", "*")) if p.is_dir()):
             key = norm(folder.name)
             files = [p for p in folder.rglob("*") if p.suffix.lower() in IMG_EXTS]
             if key not in mapping:
-                unmapped[ds_name].append(f"{folder.name} ({len(files)})")
+                unmapped[ds_name][folder.name] += len(files)
                 continue
             target = mapping[key]
             if target is None:
@@ -107,6 +108,7 @@ def main():
     ap.add_argument("--out", type=Path, default=SPLITS_DIR)
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--force", action="store_true", help="Kilitli test setini bilerek yeniden üret")
+    ap.add_argument("--min-groups", type=int, default=20, help="Bir sınıfın eğitime alınması için gereken en az farklı tane (grup) sayısı")
     args = ap.parse_args()
 
     lock_file = args.out / "test.lock.json"
@@ -121,6 +123,11 @@ def main():
     if not rows:
         sys.exit("Hiç görüntü bulunamadı. DATASETS.md'deki indirme ve klasör talimatlarına bakın.")
     rows, dup = dedupe(rows, args.raw_dir)
+
+    # Çok az farklı taneye sahip sınıflar güvenilir biçimde test edilemez → dışarıda bırak ve raporla.
+    groups_per_class = {c: len({r["group"] for r in rows if r["label"] == c}) for c in {r["label"] for r in rows}}
+    excluded = {c: n for c, n in groups_per_class.items() if n < args.min_groups}
+    rows = [r for r in rows if r["label"] not in excluded]
     splits = split(rows, args.seed)
 
     counts = Counter(r["label"] for r in rows)
@@ -140,8 +147,11 @@ def main():
         "raw_dir": str(args.raw_dir),
         "total_images": len(rows),
         "duplicates_removed": dup,
+        "classes": present,
         "class_counts": dict(counts),
-        "missing_classes": [c for c in label_map["target_classes"] if not counts.get(c)],
+        "unique_grains_per_class": {c: groups_per_class[c] for c in present},
+        "excluded_classes": {c: {"unique_grains": n, "reason": f"< {args.min_groups} farklı tane"} for c, n in excluded.items()},
+        "missing_classes": [c for c in label_map["target_classes"] if not counts.get(c) and c not in excluded],
         "imbalance_ratio_max_min": round(imbalance, 2),
         "split_counts": split_counts,
         "source_mapping": src_report,
@@ -155,12 +165,15 @@ def main():
     for c in label_map["target_classes"]:
         print(f"{c:<20}" + "".join(f"{split_counts[s].get(c, 0):>8}" for s in ("train", "val", "test")))
     print(f"\nDengesizlik oranı (en çok / en az): {imbalance:.1f}x → train.py sınıf ağırlıklı kayıp kullanır")
+    print(f"Eğitilecek sınıflar: {present}")
+    if excluded:
+        print(f"Az örnekli olduğu için dışarıda bırakılan sınıflar (farklı tane sayısı): {excluded}")
     if report["missing_classes"]:
         print(f"UYARI: hiç örneği olmayan sınıflar: {report['missing_classes']}")
     if unmapped:
         print("Eşlenmemiş klasörler (label_map.yaml'a ekleyin ya da null yapın):")
         for ds, fs in unmapped.items():
-            print(f"  {ds}: {', '.join(fs)}")
+            print(f"  {ds}: {', '.join(f'{k} ({v})' for k, v in fs.items())}")
     print(f"\nTest seti kilitlendi: {lock_file} (sha256 {test_hash[:16]}…)")
 
 

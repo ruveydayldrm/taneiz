@@ -53,7 +53,7 @@ def main():
     batches = [torch.randn(8, 3, size, size)]
     test_csv = args.splits / "test.csv"
     if test_csv.exists():
-        ds = GrainDataset(test_csv, args.raw_dir, build_transforms(size, False))
+        ds = GrainDataset(test_csv, args.raw_dir, build_transforms(size, False), ckpt["classes"])
         idx = np.random.default_rng(0).choice(len(ds), size=min(64, len(ds)), replace=False)
         batches.append(torch.stack([ds[int(i)][0] for i in idx]))
 

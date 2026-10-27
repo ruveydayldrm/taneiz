@@ -18,14 +18,27 @@ sunumda kaynak gösterin; aşağıdaki lisans notları **kontrol edilmesi gereke
 Eşleme: [`label_map.yaml`](label_map.yaml). Şemada karşılığı olmayan etiketler (filizlenmiş,
 yabancı madde vb.) `null` ile dışarıda bırakılır.
 
-## 1. WheatVision (öncelikli)
+## 1. WheatVision (kullanılıyor)
 
-- Kaynak: Mendeley Data — DOI [10.17632/bx27hg9vwd](https://doi.org/10.17632/bx27hg9vwd)
-- Lisans: Mendeley sayfasında belirtilen lisans (çoğunlukla CC BY 4.0) — **doğrulayın**.
-- Yerleşim: `raw/WheatVision/<etiket_klasörü>/*.jpg`
-- İndirdikten sonra klasör adlarını kontrol edin. `label_map.yaml` içindeki `wheatvision.labels`
-  anahtarları **tahminidir**; gerçek klasör adlarını buraya ekleyin. `prepare_data.py` eşlenmemiş
-  klasörleri listeler.
+- Kaynak: Mendeley Data — DOI [10.17632/bx27hg9vwd](https://doi.org/10.17632/bx27hg9vwd), sürüm 1
+- Lisans: **CC BY 4.0** (doğrulandı). Kaynak gösterilerek kullanılabilir.
+- İndirme (~71 MB): Mendeley sayfasından `train.zip`, `valid.zip`, `test.zip` dosyalarını indirip
+  `ml/data/raw/WheatVision_src/` içine açın → `WheatVision_src/<bölme>/images/<etiket>/*.jpg`.
+- Biçim: 512×512, her görüntüde tek tane. Roboflow dışa aktarımı; `annotations/` altındaki YOLO
+  poligonları kullanılmıyor, klasör adı görüntü etiketidir.
+
+**İnceleme sırasında bulunan ve hattın düzelttiği sorunlar**
+
+| Sorun | Etkisi | Çözüm |
+|---|---|---|
+| Roboflow her fotoğrafı ~3 kez artırarak çoğaltmış; **1494 farklı tanenin 956'sı** setin kendi train/valid/test bölmelerinin birden fazlasında yer alıyor | Hazır bölmeyle test skoru ezberi ölçer | Hazır bölmeler birleştirilir; `<orijinal>_jpg.rf.<hash>` adından grup çıkarılıp **tane bazında** yeniden bölünür |
+| Sağlıklı taneler bej, hasarlı taneler gri/beyaz zeminde ve farklı ölçekte çekilmiş | Model taneye değil zemine/ölçeğe bakabilir | Eğitimde ve çıkarımda tane zeminden ayrılır, zemine göre beyaz dengesi yapılır, nötr zemine konur ve taneden kırpılır (`normalize_grain`, eşitlik testi var) |
+| Leke (8), böcek (5), buruşuk (1) sınıflarında çok az farklı tane var; küf yok | Bu sınıflar için test metriği anlamsız olur | `--min-groups 20` altındaki sınıflar dışarıda bırakılır ve model kartında belirtilir |
+| `healthy-70-60`, `healthy-50-40` klasörleri kabuklu, farklı görünümlü taneler; anlamları belgelenmemiş | Etiket gürültüsü | Kullanılmaz (`null`) |
+
+Sonuç olarak bu set ile eğitilen model iki sınıf ayırt eder: **Sağlıklı** (951 farklı tane) ve
+**Mekanik hasar → Kırık/Çatlak** (443 farklı tane). Diğer kusur sınıfları için ek veri gerekir
+(GrainSet, süne seti).
 
 ## 2. GrainSet (buğday alt kümesi)
 
