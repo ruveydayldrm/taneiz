@@ -15,6 +15,10 @@ class NoGrainsFound(ValueError):
     pass
 
 
+class SceneRejected(ValueError):
+    """Fotoğraf, güvenilir analiz için gereken sahneye (açık, düz zemine serpilmiş taneler) uymuyor."""
+
+
 def analyze_images(images_bgr: list[np.ndarray], clf: GrainClassifier, rules: dict) -> dict:
     t0 = time.perf_counter()
     per_image = []
@@ -24,6 +28,12 @@ def analyze_images(images_bgr: list[np.ndarray], clf: GrainClassifier, rules: di
 
     for idx, img in enumerate(images_bgr):
         quality = check_image_quality(img)
+        if not quality["background"]["ok"]:
+            raise SceneRejected(
+                f"Fotoğraf {idx + 1}: açık renkli, düz bir zemin bulunamadı (taneler yığın halinde ya da zemin renkli/koyu). "
+                "Yığındaki taneler birbirini kapattığı için güvenilir analiz yapılamaz. "
+                "Bir avuç taneyi beyaz bir A4 kâğıda birbirine değmeyecek şekilde serpip yukarıdan, gölgesiz çekin."
+            )
         warnings += [f"Fotoğraf {idx + 1}: {w}" for w in quality["warnings"]]
         grains, rejected = segment_grains(img)
         crops = []

@@ -121,6 +121,11 @@ flowchart LR
   over-splitting elongated single grains (covered by tests).
 - Contours are filtered relative to the median kernel area, removing dust and clumps.
 - Image QC (Laplacian variance, exposure, resolution) produces warnings, not silent failures.
+- **Scene check, added after a real-world test:** photos of heaped grain have no visible background,
+  and the pipeline returned a confident but meaningless grade from the gaps between kernels. The service
+  now estimates the background colour (large-kernel median in LAB). If the background is coloured or dark,
+  it refuses with an explanatory `422` instead of producing a grade that would be sealed on-chain.
+  Regression tests cover this case.
 
 **Machine learning**
 - Datasets with different taxonomies (WheatVision, GrainSet, a sunn-pest set) are mapped to one

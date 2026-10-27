@@ -27,6 +27,33 @@ def test_quality_flags_blur(sample):
     assert not check_image_quality(cv2.GaussianBlur(img, (41, 41), 20))["ok"]
 
 
+def _grain_pile(seed=1):
+    """Zemin görünmeyen, üst üste yığılmış taneler (sahada sık çekilen ama analiz edilemeyen sahne)."""
+    rng = np.random.default_rng(seed)
+    img = np.full((700, 1000, 3), (60, 110, 165), np.uint8)  # BGR: buğday rengi
+    for _ in range(900):
+        c = tuple(int(v) for v in rng.integers([40, 90, 140], [90, 150, 210]))
+        cv2.ellipse(img, (int(rng.integers(0, 1000)), int(rng.integers(0, 700))), (34, 18), float(rng.uniform(0, 180)), 0, 360, c, -1)
+        cv2.ellipse(img, (int(rng.integers(0, 1000)), int(rng.integers(0, 700))), (30, 3), float(rng.uniform(0, 180)), 0, 360, (25, 45, 70), -1)
+    return img
+
+
+def test_background_check_rejects_grain_pile(sample):
+    from app.quality import check_background
+
+    assert not check_background(_grain_pile())["ok"]
+    assert check_background(sample[0])["ok"]
+
+
+def test_pipeline_refuses_pile_instead_of_fake_grade():
+    import pytest
+
+    from app.pipeline import SceneRejected
+
+    with pytest.raises(SceneRejected):
+        analyze_images([_grain_pile()], _StubClassifier(), load_rules())
+
+
 def test_grading_rules():
     rules = load_rules()
     assert grade({"SAGLIKLI": 0.97, "KUFLU": 0.0}, rules)["code"] == "SINIF_1"

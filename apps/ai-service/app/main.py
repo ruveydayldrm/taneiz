@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse
 from . import config
 from .grading import load_rules
 from .model import GrainClassifier, ModelNotAvailable
-from .pipeline import NoGrainsFound, analyze_images
+from .pipeline import NoGrainsFound, SceneRejected, analyze_images
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("taneiz")
@@ -82,5 +82,5 @@ async def analyze(files: list[UploadFile] = File(...)):
 
     try:
         return analyze_images(images, clf, state["rules"])
-    except NoGrainsFound as e:
+    except (NoGrainsFound, SceneRejected) as e:
         raise HTTPException(422, str(e))
